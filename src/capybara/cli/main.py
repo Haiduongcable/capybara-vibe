@@ -1,0 +1,211 @@
+"""Click CLI entrypoint for CapybaraVibeCoding."""
+
+import asyncio
+
+# IMPORTANT: Import litellm config FIRST to suppress verbose output
+from capybara.core.litellm_config import suppress_litellm_output
+suppress_litellm_output()
+
+import click
+from rich.console import Console
+from rich.panel import Panel
+
+from capybara import __version__
+from capybara.core.config import init_config, load_config
+from capybara.core.logging import setup_logging
+
+# Initialize logging on module load
+logger = setup_logging(log_level="INFO", console_output=False)
+
+console = Console()
+
+
+@click.group()
+@click.version_option(version=__version__, prog_name="capybara")
+def cli() -> None:
+    """CapybaraVibeCoding - AI-powered coding assistant."""
+    pass
+
+
+@cli.command()
+@click.option("--model", "-m", default=None, help="Model to use (default from config)")
+@click.option("--no-stream", is_flag=True, help="Disable streaming output")
+def chat(model: str | None, no_stream: bool) -> None:
+    """Start interactive chat session."""
+    asyncio.run(_chat_async(model, not no_stream))
+
+
+@cli.command()
+@click.argument("prompt")
+@click.option("--model", "-m", default=None, help="Model to use")
+@click.option("--no-stream", is_flag=True, help="Disable streaming")
+def run(prompt: str, model: str | None, no_stream: bool) -> None:
+    """Run a single prompt and exit."""
+    asyncio.run(_run_async(prompt, model, not no_stream))
+
+
+@cli.command()
+def init() -> None:
+    """Initialize configuration in ~/.capybara/"""
+    config_path = init_config()
+    console.print(f"[green]Configuration initialized at:[/green] {config_path}")
+    console.print("[dim]Edit this file to configure providers, memory, and tools.[/dim]")
+
+
+@cli.command()
+def config() -> None:
+    """Show current configuration."""
+    cfg = load_config()
+    console.print(Panel.fit(
+        f"[bold]Model:[/bold] {cfg.default_model}\n"
+        f"[bold]Providers:[/bold] {len(cfg.providers)}\n"
+        f"[bold]Memory max tokens:[/bold] {cfg.memory.max_tokens:,}\n"
+        f"[bold]MCP enabled:[/bold] {cfg.mcp.enabled}",
+        title="Current Configuration",
+    ))
+
+
+@cli.command()
+def sessions() -> None:
+    """List recent conversation sessions."""
+    asyncio.run(_list_sessions())
+
+
+@cli.command()
+@click.argument("session_id")
+@click.option("--model", "-m", default=None, help="Model to use")
+def resume(session_id: str, model: str | None) -> None:
+    """Resume a previous conversation session."""
+    asyncio.run(_resume_async(session_id, model))
+
+
+async def _chat_async(model: str | None, stream: bool) -> None:
+    """Async chat implementation."""
+    from capybara.cli.interactive import interactive_chat
+
+    cfg = load_config()
+    model = model or cfg.default_model
+
+    await interactive_chat(model=model, stream=stream, config=cfg)
+
+
+async def _run_async(prompt: str, model: str | None, stream: bool) -> None:
+    """Async single-run implementation."""
+    from capybara.core.agent import Agent, AgentConfig
+    from capybara.core.prompts import build_system_prompt
+    from capybara.core.context import build_project_context
+    from capybara.memory.window import ConversationMemory, MemoryConfig
+    from capybara.tools.builtin import registry as default_tools
+    from capybara.tools.mcp.bridge import MCPBridge
+    from capybara.tools.registry import ToolRegistry
+
+    cfg = load_config()
+    model = model or cfg.default_model
+
+    # Setup tools registry
+    tools = ToolRegistry()
+    tools.merge(default_tools)
+
+    # Setup MCP integration if enabled
+    mcp_bridge = None
+    if cfg.mcp.enabled:
+        try:
+            mcp_bridge = MCPBridge(cfg.mcp)
+            connected = await mcp_bridge.connect_all()
+            if connected > 0:
+                mcp_bridge.register_with_registry(tools)
+        except Exception:
+            pass  # Silent failure for one-off commands
+
+    try:
+        from capybara.providers.router import ProviderRouter
+
+        agent_config = AgentConfig(model=model, stream=stream)
+        memory = ConversationMemory(config=MemoryConfig(max_tokens=cfg.memory.max_tokens))
+
+        # Set system prompt
+        project_context = await build_project_context()
+        memory.set_system_prompt(build_system_prompt(project_context=project_context))
+
+        provider = ProviderRouter(providers=cfg.providers, default_model=model)
+        agent = Agent(
+            config=agent_config,
+            memory=memory,
+            tools=tools,
+            console=console,
+            provider=provider,
+            tools_config=cfg.tools
+        )
+
+        await agent.run(prompt)
+    finally:
+        # Clean up MCP connections
+        if mcp_bridge:
+            await mcp_bridge.disconnect_all()
+
+
+async def _list_sessions() -> None:
+    """List recent conversation sessions."""
+    from capybara.memory.storage import ConversationStorage
+    from rich.table import Table
+
+    storage = ConversationStorage()
+    await storage.initialize()
+
+    sessions = await storage.list_sessions(limit=20)
+
+    if not sessions:
+        console.print("[dim]No sessions found[/dim]")
+        return
+
+    table = Table(title="Recent Sessions")
+    table.add_column("ID", style="cyan")
+    table.add_column("Title", style="green")
+    table.add_column("Model", style="yellow")
+    table.add_column("Updated", style="dim")
+
+    for session in sessions:
+        table.add_row(
+            session["id"],
+            session["title"],
+            session["model"],
+            session["updated_at"][:16],  # Trim to minute precision
+        )
+
+    console.print(table)
+    console.print(f"\n[dim]Use 'capybara resume <session_id>' to continue a session[/dim]")
+
+
+async def _resume_async(session_id: str, model: str | None) -> None:
+    """Resume a previous conversation session."""
+    from capybara.memory.storage import ConversationStorage
+
+    cfg = load_config()
+    model = model or cfg.default_model
+
+    # Load session
+    storage = ConversationStorage()
+    await storage.initialize()
+    messages = await storage.load_session(session_id)
+
+    if not messages:
+        console.print(f"[red]Session '{session_id}' not found[/red]")
+        return
+
+    console.print(f"[green]Resuming session '{session_id}' ({len(messages)} messages)[/green]")
+
+    # Continue in interactive mode with loaded messages
+    from capybara.cli.interactive import interactive_chat_with_session
+
+    await interactive_chat_with_session(
+        session_id=session_id,
+        model=model,
+        stream=True,
+        config=cfg,
+        initial_messages=messages,
+        storage=storage,
+    )
+
+
+if __name__ == "__main__":
+    cli()

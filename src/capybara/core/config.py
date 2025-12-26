@@ -57,6 +57,20 @@ class MCPConfig(BaseModel):
     servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
 
 
+class FeaturesConfig(BaseModel):
+    """Feature flags for experimental/new features."""
+
+    auto_complexity_detection: bool = False
+    auto_todo_creation: bool = False
+    auto_delegation: bool = False
+    unified_ui: bool = False
+    enhanced_summaries: bool = False
+    structured_logging: bool = False
+
+    # Complexity threshold (0.0-1.0)
+    complexity_threshold: float = 0.6
+
+
 class CapybaraConfig(BaseSettings):
     """Main configuration for CapybaraVibeCoding."""
 
@@ -71,6 +85,7 @@ class CapybaraConfig(BaseSettings):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
+    features: FeaturesConfig = Field(default_factory=FeaturesConfig)
 
     @property
     def default_model(self) -> str:

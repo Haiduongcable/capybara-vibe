@@ -3,7 +3,9 @@
 import asyncio
 import functools
 import json
-from typing import Any, Callable
+from typing import Any, Callable, Optional
+
+from capybara.tools.base import AgentMode, ToolRestriction
 
 
 class ToolRegistry:
@@ -12,6 +14,7 @@ class ToolRegistry:
     def __init__(self) -> None:
         self._tools: dict[str, Callable[..., Any]] = {}
         self._schemas: list[dict[str, Any]] = []
+        self._restrictions: dict[str, ToolRestriction] = {}
 
     def unregister(self, name: str) -> None:
         """Unregister a tool by name."""
@@ -24,6 +27,7 @@ class ToolRegistry:
         name: str,
         description: str,
         parameters: dict[str, Any],
+        allowed_modes: Optional[list[AgentMode]] = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Decorator to register async tools.
 
@@ -31,6 +35,7 @@ class ToolRegistry:
             name: Tool name (used in function calling)
             description: Tool description for the LLM
             parameters: JSON Schema for tool parameters
+            allowed_modes: Optional list of agent modes allowed to use this tool
 
         Returns:
             Decorator function
@@ -63,6 +68,11 @@ class ToolRegistry:
                     },
                 }
             )
+
+            # Store restrictions
+            if allowed_modes:
+                self._restrictions[name] = ToolRestriction(allowed_modes=allowed_modes)
+
             return target_func
 
         return decorator
@@ -128,3 +138,27 @@ class ToolRegistry:
     def to_json(self) -> str:
         """Export schemas as JSON."""
         return json.dumps(self._schemas, indent=2)
+
+    def filter_by_mode(self, mode: AgentMode) -> "ToolRegistry":
+        """Create filtered registry for specific agent mode."""
+        filtered = ToolRegistry()
+
+        for name, func in self._tools.items():
+            restriction = self._restrictions.get(name)
+
+            # If no restriction or mode allowed, include tool
+            if not restriction or mode in restriction.allowed_modes:
+                schema = next(s for s in self._schemas if s["function"]["name"] == name)
+                filtered._tools[name] = func
+                filtered._schemas.append(schema)
+                if restriction:
+                    filtered._restrictions[name] = restriction
+
+        return filtered
+
+    def is_tool_allowed(self, name: str, mode: AgentMode) -> bool:
+        """Check if tool is allowed in mode."""
+        restriction = self._restrictions.get(name)
+        if not restriction:
+            return True
+        return mode in restriction.allowed_modes

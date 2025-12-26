@@ -1,6 +1,7 @@
 """Interactive chat with prompt_toolkit."""
 
 import random
+import uuid
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
@@ -76,30 +77,12 @@ async def interactive_chat(
             # Ensure safe tools are enabled
             config.tools.security["todo"] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
 
-    # Setup tools registry with builtin tools
-    tools = ToolRegistry()
-    tools.merge(default_tools)
-
-    # Post-Registry Mode Logic (Hiding Tools)
-    if mode == "plan":
-        # Completely hide tools so the agent doesn't even know they exist
-        for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
-            tools.unregister(tool_name)
-
-    # Setup MCP integration if enabled
-    mcp_bridge = None
-    if config.mcp.enabled:
-        try:
-            mcp_bridge = MCPBridge(config.mcp)
-            connected = await mcp_bridge.connect_all()
-            if connected > 0:
-                mcp_count = mcp_bridge.register_with_registry(tools)
-                console.print(f"[dim]Connected to {connected} MCP servers ({mcp_count} tools)[/dim]")
-        except Exception as e:
-            console.print(f"[yellow]Warning: MCP setup failed: {e}[/yellow]")
-
     # Setup agent with provider router
     from capybara.providers.router import ProviderRouter
+    from capybara.core.session_manager import SessionManager
+
+    # Generate session ID for logging
+    session_id = str(uuid.uuid4())
 
     agent_config = AgentConfig(model=model, stream=stream)
     memory_config = MemoryConfig(max_tokens=config.memory.max_tokens)
@@ -113,11 +96,49 @@ async def interactive_chat(
     agent = Agent(
         config=agent_config,
         memory=memory,
-        tools=tools,
+        tools=ToolRegistry(),  # Temporary empty registry
         console=console,
         provider=provider,
         tools_config=config.tools,
+        session_id=session_id,  # Enable session-based logging
     )
+
+    # Initialize storage and session manager for delegation
+    storage = ConversationStorage()
+    await storage.initialize()
+    session_manager = SessionManager(storage)
+
+    # Setup tools registry with delegation enabled
+    tools = ToolRegistry()
+    from capybara.tools.builtin import register_builtin_tools
+    register_builtin_tools(
+        tools,
+        parent_session_id=session_id,
+        parent_agent=agent,
+        session_manager=session_manager,
+        storage=storage
+    )
+
+    # Update agent with full tools registry
+    agent.tools = tools.filter_by_mode(agent_config.mode)
+
+    # Post-Registry Mode Logic (Hiding Tools)
+    if mode == "plan":
+        # Completely hide tools so the agent doesn't even know they exist
+        for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+            agent.tools.unregister(tool_name)
+
+    # Setup MCP integration if enabled
+    mcp_bridge = None
+    if config.mcp.enabled:
+        try:
+            mcp_bridge = MCPBridge(config.mcp)
+            connected = await mcp_bridge.connect_all()
+            if connected > 0:
+                mcp_count = mcp_bridge.register_with_registry(agent.tools)
+                console.print(f"[dim]Connected to {connected} MCP servers ({mcp_count} tools)[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: MCP setup failed: {e}[/yellow]")
 
     # Initialize persistent todo panel
     todo_panel = PersistentTodoPanel(visible=True)
@@ -127,12 +148,12 @@ async def interactive_chat(
         if panel_content := todo_panel.render():
             console.print(panel_content)
 
-    # Register callback to render panel whenever todos change
+    # Subscribe to todo state changes (just update internal state, don't render inline)
     def on_todos_changed(todos):
-        """Callback when todos are updated - render immediately."""
-        if todos:  # Only render if there are todos
-            console.print()  # Blank line for separation
-            render_todo_panel()
+        """Callback when todos are updated - update panel state only."""
+        # Don't render inline - only update internal state
+        # Panel will render after agent completes
+        pass
 
     from capybara.tools.builtin.todo_state import todo_state
     todo_state.subscribe(on_todos_changed)

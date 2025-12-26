@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from capybara.tools.registry import ToolRegistry
+from capybara.tools.base import AgentMode
 
 if TYPE_CHECKING:
     pass
@@ -50,6 +51,7 @@ def register_todo_tool(registry: ToolRegistry) -> None:
     @registry.tool(
         name="todo",
         description="Manage a task list. Use this to track progress on complex multi-step tasks. You can 'read' current todos or 'write' to update the list.",
+        allowed_modes=[AgentMode.PARENT],
         parameters={
             "type": "object",
             "properties": {
@@ -105,6 +107,12 @@ def register_todo_tool(registry: ToolRegistry) -> None:
                 ids = [t.id for t in new_list]
                 if len(ids) != len(set(ids)):
                     return "Error: Todo IDs must be unique."
+
+                # CRITICAL: Enforce sequential execution - only 1 task can be in_progress
+                in_progress_tasks = [t for t in new_list if t.status == TodoStatus.IN_PROGRESS]
+                if len(in_progress_tasks) > 1:
+                    in_progress_ids = [t.id for t in in_progress_tasks]
+                    return f"Error: Only 1 task can be 'in_progress' at a time. Found {len(in_progress_tasks)} tasks in_progress: {in_progress_ids}. Complete the current task before starting another."
 
                 # Update state
                 _TODOS = new_list

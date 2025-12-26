@@ -32,7 +32,9 @@ class ConversationStorage:
                     title TEXT,
                     model TEXT,
                     created_at TEXT,
-                    updated_at TEXT
+                    updated_at TEXT,
+                    parent_id TEXT DEFAULT NULL,
+                    agent_mode TEXT DEFAULT 'parent'
                 )
             """)
             await db.execute("""
@@ -48,8 +50,27 @@ class ConversationStorage:
                 )
             """)
             await db.execute("""
+                CREATE TABLE IF NOT EXISTS session_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    tool_name TEXT,
+                    metadata TEXT,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+                )
+            """)
+            await db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_messages_session
                 ON messages(session_id)
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_sessions_parent
+                ON sessions(parent_id)
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_events_session
+                ON session_events(session_id, created_at)
             """)
             await db.commit()
         self._initialized = True
@@ -59,6 +80,8 @@ class ConversationStorage:
         session_id: str,
         model: str,
         title: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        agent_mode: str = "parent",
     ) -> None:
         """Create a new conversation session."""
         await self._init_db()
@@ -66,8 +89,8 @@ class ConversationStorage:
 
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
-                "INSERT INTO sessions (id, title, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                (session_id, title or "Untitled", model, now, now),
+                "INSERT INTO sessions (id, title, model, created_at, updated_at, parent_id, agent_mode) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (session_id, title or "Untitled", model, now, now, parent_id, agent_mode),
             )
             await db.commit()
 
@@ -162,3 +185,78 @@ class ConversationStorage:
                 (title, session_id),
             )
             await db.commit()
+
+    async def get_session_hierarchy(self, session_id: str) -> dict[str, Any]:
+        """Get session with parent and children info."""
+        await self._init_db()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT id, title, model, parent_id, agent_mode, created_at, updated_at FROM sessions WHERE id = ?",
+                (session_id,),
+            )
+            row = await cursor.fetchone()
+
+        if not row:
+            return {}
+
+        return dict(row)
+
+    async def get_child_sessions(self, parent_id: str) -> list[dict[str, Any]]:
+        """Get all child sessions for a parent."""
+        await self._init_db()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT id, title, model, agent_mode, created_at, updated_at FROM sessions WHERE parent_id = ? ORDER BY created_at DESC",
+                (parent_id,),
+            )
+            rows = await cursor.fetchall()
+
+        return [dict(row) for row in rows]
+
+    async def log_session_event(
+        self,
+        session_id: str,
+        event_type: str,
+        tool_name: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        """Log event for progress tracking."""
+        await self._init_db()
+        now = datetime.now(timezone.utc).isoformat()
+        metadata_json = json.dumps(metadata) if metadata else None
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT INTO session_events (session_id, event_type, tool_name, metadata, created_at) VALUES (?, ?, ?, ?, ?)",
+                (session_id, event_type, tool_name, metadata_json, now),
+            )
+            await db.commit()
+
+    async def get_session_events(
+        self,
+        session_id: str,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Retrieve recent events for a session."""
+        await self._init_db()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT id, session_id, event_type, tool_name, metadata, created_at FROM session_events WHERE session_id = ? ORDER BY created_at DESC LIMIT ?",
+                (session_id, limit),
+            )
+            rows = await cursor.fetchall()
+
+        events = []
+        for row in rows:
+            event = dict(row)
+            if event.get("metadata"):
+                event["metadata"] = json.loads(event["metadata"])
+            events.append(event)
+
+        return events

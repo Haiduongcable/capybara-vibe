@@ -26,6 +26,12 @@ Capybara doesn't just flail around. It uses a built-in **Todo System** to:
 - **Deep Awareness**: Automatically scans your project structure, `README.md`, and Git status on startup.
 - **OS/Shell adaptation**: Knows if you're on Mac/Zsh or Windows/PowerShell and adapts commands accordingly.
 
+### 🤝 Multi-Agent Delegation
+- **Parallel Work**: Spawn specialized child agents for independent subtasks
+- **Live Progress**: See real-time updates from child agents in parent console
+- **Isolated Context**: Child agents work with focused task descriptions, no shared history
+- **Smart Restrictions**: Child agents cannot delegate further or modify todo lists
+
 ---
 
 ## 🚀 Quick Start

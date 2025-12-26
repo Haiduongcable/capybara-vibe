@@ -45,7 +45,7 @@ class ProviderRouter:
             model_list=model_list,
             routing_strategy="simple-shuffle",
             retry_after=5,
-            num_retries=3,
+            num_retries=5,
         )
 
     def _get_provider_config(self, model: str) -> Optional[ProviderConfig]:

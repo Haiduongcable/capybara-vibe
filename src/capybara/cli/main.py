@@ -86,18 +86,76 @@ def config() -> None:
 def model(name: str | None) -> None:
     """Get or set the default AI model."""
     cfg = load_config()
-    
+
     if name:
         if not cfg.providers:
             console.print("[red]No providers configured.[/red]")
             return
-            
+
         # Update the first provider (assumed default)
         cfg.providers[0].model = name
         save_config(cfg)
         console.print(f"[green]Default model updated to:[/green] {name}")
     else:
-        console.print(f"[bold]Current default model:[/bold] {cfg.default_model}")
+        # Interactive model selection
+        if not cfg.providers:
+            console.print("[red]No providers configured.[/red]")
+            return
+
+        # Show current model
+        console.print(f"[bold]Current default model:[/bold] {cfg.default_model}\n")
+
+        # Get available models from all providers (deduplicated, preserving order)
+        seen = set()
+        available_models = []
+        for provider in cfg.providers:
+            if provider.model not in seen:
+                seen.add(provider.model)
+                available_models.append(provider.model)
+
+        if not available_models:
+            console.print("[yellow]No models configured in providers.[/yellow]")
+            return
+
+        # Display available models
+        console.print("[bold]Available models:[/bold]")
+        for idx, model_name in enumerate(available_models, 1):
+            current_marker = " [green](current)[/green]" if model_name == cfg.default_model else ""
+            console.print(f"  {idx}. {model_name}{current_marker}")
+
+        # Prompt for selection
+        try:
+            from prompt_toolkit import prompt as pt_prompt
+            from prompt_toolkit.validation import Validator, ValidationError
+
+            class NumberValidator(Validator):
+                def validate(self, document):
+                    text = document.text
+                    if not text:
+                        return
+                    if not text.isdigit() or int(text) < 1 or int(text) > len(available_models):
+                        raise ValidationError(
+                            message=f"Please enter a number between 1 and {len(available_models)}"
+                        )
+
+            console.print()
+            selection = pt_prompt(
+                "Select model (enter number): ",
+                validator=NumberValidator()
+            )
+
+            if selection:
+                selected_idx = int(selection) - 1
+                selected_model = available_models[selected_idx]
+
+                # Update the first provider (assumed default)
+                cfg.providers[0].model = selected_model
+                save_config(cfg)
+                console.print(f"\n[green]✓ Default model updated to:[/green] {selected_model}")
+        except KeyboardInterrupt:
+            console.print("\n[dim]Selection cancelled[/dim]")
+        except Exception as e:
+            console.print(f"\n[red]Error during selection: {e}[/red]")
 
 
 @cli.command()
@@ -126,6 +184,7 @@ async def _chat_async(model: str | None, stream: bool, mode: str = "standard", i
 
 async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "standard") -> None:
     """Async single-run implementation."""
+    import uuid
     from capybara.core.agent import Agent, AgentConfig
     from capybara.core.prompts import build_system_prompt
     from capybara.core.context import build_project_context
@@ -143,7 +202,7 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
 
     # Apply Mode Logic (Duplicate of interactive.py logic - should refactor, but kept inline for now)
     from capybara.core.config import ToolSecurityConfig, ToolPermission
-    
+
     if mode == "plan":
         # Remove dangerous tools from registry to hide them
         for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
@@ -167,6 +226,9 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
     try:
         from capybara.providers.router import ProviderRouter
 
+        # Generate session ID for logging
+        session_id = str(uuid.uuid4())
+
         agent_config = AgentConfig(model=model, stream=stream)
         memory = ConversationMemory(config=MemoryConfig(max_tokens=cfg.memory.max_tokens))
 
@@ -181,7 +243,8 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
             tools=tools,
             console=console,
             provider=provider,
-            tools_config=cfg.tools
+            tools_config=cfg.tools,
+            session_id=session_id,  # Enable session-based logging
         )
 
         await agent.run(prompt)

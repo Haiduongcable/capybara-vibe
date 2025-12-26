@@ -2,7 +2,6 @@
 
 import random
 from pathlib import Path
-from typing import Optional
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
@@ -13,15 +12,17 @@ from rich.panel import Panel
 
 from capybara.core.agent import Agent, AgentConfig
 from capybara.core.config import CapybaraConfig
+from capybara.core.context import build_project_context
+from capybara.core.interrupts import AgentInterruptException
 from capybara.core.logging import get_logger
 from capybara.core.prompts import build_system_prompt
-from capybara.core.context import build_project_context
 from capybara.memory.storage import ConversationStorage
 from capybara.memory.window import ConversationMemory, MemoryConfig
+from capybara.tools.base import ToolPermission, ToolSecurityConfig
 from capybara.tools.builtin import registry as default_tools
 from capybara.tools.mcp.bridge import MCPBridge
 from capybara.tools.registry import ToolRegistry
-from capybara.tools.base import ToolPermission, ToolSecurityConfig
+from capybara.ui.todo_panel import PersistentTodoPanel
 
 console = Console()
 logger = get_logger(__name__)
@@ -50,24 +51,24 @@ async def interactive_chat(
         mode: Operation mode (standard/safe/plan/auto)
     """
     from capybara.core.config import load_config
-    
+
     config = config or load_config()
     console = Console()
 
     # Apply Mode Logic
     if mode != "standard":
         console.print(f"[bold yellow]Activating mode: {mode.upper()}[/bold yellow]")
-        
+
         if mode == "safe":
             # Force ASK for everything
             for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
                 config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
-                
+
         elif mode == "auto":
             # Force ALWAYS for everything (CAUTION)
              for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
                 config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
-                
+
         elif mode == "plan":
             # Disable dangerous tools
             for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
@@ -118,6 +119,24 @@ async def interactive_chat(
         tools_config=config.tools,
     )
 
+    # Initialize persistent todo panel
+    todo_panel = PersistentTodoPanel(visible=True)
+
+    def render_todo_panel():
+        """Render todo panel if it has content."""
+        if panel_content := todo_panel.render():
+            console.print(panel_content)
+
+    # Register callback to render panel whenever todos change
+    def on_todos_changed(todos):
+        """Callback when todos are updated - render immediately."""
+        if todos:  # Only render if there are todos
+            console.print()  # Blank line for separation
+            render_todo_panel()
+
+    from capybara.tools.builtin.todo_state import todo_state
+    todo_state.subscribe(on_todos_changed)
+
     # Setup prompt_toolkit
     history_file = Path.home() / ".capybara" / "history"
     history_file.parent.mkdir(parents=True, exist_ok=True)
@@ -135,12 +154,19 @@ async def interactive_chat(
         """Handle Ctrl+C gracefully."""
         raise KeyboardInterrupt()
 
+    @bindings.add("c-t")
+    def toggle_todos(event) -> None:  # type: ignore[no-untyped-def]
+        """Toggle todo panel visibility (Ctrl+T)."""
+        todo_panel.toggle_visibility()
+        logger.info(f"Todo panel visibility toggled: {todo_panel.visible}")
+        # Note: Panel will re-render on next agent response
+
     # Welcome message
     console.print(
         Panel.fit(
             f"[bold green]CapybaraVibeCoding[/bold green]\n"
             f"Model: {model}\n"
-            "Type 'exit' to quit, '/clear' to reset",
+            "Type 'exit' to quit, '/clear' to reset, Ctrl+T to toggle todos",
             title="Welcome",
         )
     )
@@ -183,14 +209,27 @@ async def interactive_chat(
                 await agent.run(user_input)
                 console.print()  # Newline after response
 
+                # Render todo panel if it has todos
+                render_todo_panel()
+
             except KeyboardInterrupt:
                 console.print("\n[yellow]Interrupted[/yellow]")
+                # Still show todo panel even if interrupted
+                render_todo_panel()
                 continue
             except EOFError:
                 break
+            except AgentInterruptException:
+                console.print("\n[yellow]Agent interrupted by user[/yellow]")
+                # Show todo panel after agent interruption
+                render_todo_panel()
+                continue
             except Exception as e:
                 console.print(f"[red]Error: {e}[/red]")
     finally:
+        # Clean up todo panel and state subscriptions
+        todo_state.unsubscribe(on_todos_changed)
+        todo_panel.cleanup()
         # Clean up MCP connections
         if mcp_bridge:
             await mcp_bridge.disconnect_all()

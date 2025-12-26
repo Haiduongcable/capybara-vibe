@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import json
-from typing import Any, List, Optional
 from enum import Enum
+
+# Import state manager for UI integration
+# Circular import is safe because todo_state.py only imports TodoItem
+from typing import TYPE_CHECKING, Any
+
 from pydantic import BaseModel
+
 from capybara.tools.registry import ToolRegistry
+
+if TYPE_CHECKING:
+    pass
 
 # --- Data Models ---
 
@@ -28,9 +36,9 @@ class TodoItem(BaseModel):
 # --- State ---
 
 # In-memory storage for the session
-_TODOS: List[TodoItem] = []
+_TODOS: list[TodoItem] = []
 
-def get_todos() -> List[TodoItem]:
+def get_todos() -> list[TodoItem]:
     """Get current list of todos (read-only copy)."""
     return list(_TODOS)
 
@@ -74,41 +82,57 @@ def register_todo_tool(registry: ToolRegistry) -> None:
             "required": ["action"]
         }
     )
-    async def todo(action: str, todos: Optional[List[dict[str, Any]]] = None) -> str:
+    async def todo(action: str, todos: list[dict[str, Any]] | None = None) -> str:
         """Manage the todo list."""
         global _TODOS
-        
+
         if action == "read":
             return json.dumps({
                 "message": f"Retrieved {len(_TODOS)} todos",
                 "todos": [t.model_dump() for t in _TODOS],
                 "total_count": len(_TODOS)
             }, indent=2)
-            
+
         elif action == "write":
             if todos is None:
                 return "Error: 'todos' list is required for write action."
-                
+
             try:
                 # Validate and parse
                 new_list = [TodoItem(**item) for item in todos]
-                
+
                 # Check uniqueness of IDs
                 ids = [t.id for t in new_list]
                 if len(ids) != len(set(ids)):
                     return "Error: Todo IDs must be unique."
-                    
+
                 # Update state
                 _TODOS = new_list
-                
+
+                # Notify state manager for UI updates
+                _notify_state_change(new_list)
+
                 return json.dumps({
                     "message": f"Updated {len(_TODOS)} todos",
                     "todos": [t.model_dump() for t in _TODOS],
                     "total_count": len(_TODOS)
                 }, indent=2)
-                
+
             except Exception as e:
                 return f"Error updating todos: {e}"
-                
+
         else:
             return f"Error: Unknown action '{action}'"
+
+
+def _notify_state_change(todos: list[TodoItem]) -> None:
+    """Notify state manager of todo changes for UI updates.
+
+    Lazy import to avoid circular dependency issues.
+    """
+    try:
+        from capybara.tools.builtin.todo_state import todo_state
+        todo_state.update_todos(todos)
+    except ImportError:
+        # State manager not available, skip notification
+        pass

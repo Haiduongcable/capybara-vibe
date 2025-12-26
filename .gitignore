@@ -4,3 +4,10 @@
 .pytest_cache
 .ruff_cache
 .coverage
+plans/
+__pypackages__/
+.DS_Store
+.vscode/
+.idea/
+.env
+.env.*

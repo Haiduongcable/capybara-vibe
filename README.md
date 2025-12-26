@@ -1,68 +1,138 @@
-# CapybaraVibeCoding
+# Capybara Vibe Coding
 
-AI-powered coding assistant CLI with multi-provider support.
+**The AI-powered coding assistant that thinks, plans, and acts in real-time.**
 
-## Features
+Capybara Vibe Coding is a next-generation CLI agent designed for complex coding tasks. It combines powerful LLM capabilities with a **visual, immersive dashboard** that keeps you in the loop while it works.
 
-- **Multi-Provider Support**: Works with OpenAI, Anthropic, Google, Ollama, and 100+ models via LiteLLM
-- **Streaming Responses**: Real-time token-by-token output
-- **Tool Calling**: Built-in tools for file operations, bash execution, and search
-- **MCP Integration**: Support for Model Context Protocol servers
-- **Memory Management**: Sliding window with token-based trimming
+## ✨ Key Features
 
-## Installation
+### 🖥️ Immersive Split-View UI
+Experience a true "mission control" interface. When the agent gets to work, the terminal splits into two live zones:
+- **Left Panel (Strategic Plan)**: A persistent Todo list showing exactly what the agent plans to do, what's in progress, and what's done.
+- **Right Panel (Tactical Execution)**: A real-time feed of the tools the agent is running (e.g., `searching code`, `editing files`, `running tests`).
+
+### 📝 Proactive Task Management
+Capybara doesn't just flail around. It uses a built-in **Todo System** to:
+1.  **Break down** your complex requests into step-by-step plans.
+2.  **Track progress** statefully across the session.
+3.  **Self-correct** by adding new tasks as it discovers requirements.
+
+### 🛡️ Safety & Precision
+- **Smart Editing**: Uses `search_replace` with strict block matching (no more " hallucinated" line numbers).
+- **Directory Guard**: Prevents accidental operations in sensitive paths (like root or home).
+- **Permission Control**: Configure tools to `always`, `ask`, or `never` run.
+
+### 🧠 Context Intelligence
+- **Deep Awareness**: Automatically scans your project structure, `README.md`, and Git status on startup.
+- **OS/Shell adaptation**: Knows if you're on Mac/Zsh or Windows/PowerShell and adapts commands accordingly.
+
+---
+
+## 🚀 Quick Start
+
+### 1. Installation
 
 ```bash
-pip install capybara-vibe-coding
+pip install -e .
 ```
 
-Or install from source:
+### 2. Initialize
+Create the default configuration at `~/.capybara/config.yaml`:
 
 ```bash
-pip install -e ".[dev]"
-```
-
-## Quick Start
-
-```bash
-# Initialize configuration
 capybara init
+```
 
-# Start interactive chat
+### 3. Start Coding
+Launch the interactive session:
+
+```bash
+capybara chat
+```
+
+## 🛡️ Operation Modes
+
+Capybara supports different modes to suit your workflow:
+
+```bash
+# Standard mode (uses config.yaml default permissions)
 capybara chat
 
-# Run a single prompt
-capybara run "What files are in this directory?"
+# Plan Mode: Safe for research/planning. Disables file writes and bash.
+capybara chat --mode plan
+
+# Safe Mode: Paranoia mode. Asks for permission before EVERY dangerous action.
+capybara chat --mode safe
+
+# Autonomous Mode: Never asks for permission. For trusted environments only.
+capybara chat --mode auto
 ```
 
-## Configuration
+## 🖥️ Immersive Split-View UI
+**Try a complex task to see the UI in action:**
+> "Refactor the src/core/auth.py module to use class-based architecture and add 3 unit tests."
 
-Configuration is stored in `~/.capybara/config.yaml`:
+Watch as Capybara:
+1.  Creates a Todo list (appearing on the left).
+2.  Starts executing tools (appearing on the right).
+3.  Checks off items as it completes them.
+
+---
+
+## 🛠️ Built-in Capabilities
+
+Capybara comes equipped with a versatile tool belt:
+
+| Tool | Description |
+|------|-------------|
+| **`todo`** | Manage task lists (Plan, Track, Update). |
+| **`search_replace`** | Safe, block-based file editing. |
+| **`bash`** | Execute shell commands (with timeouts). |
+| **`list_directory`** | Explore file structures recursively. |
+| **`read_file`** | Read file contents. |
+| **`grep`** | Search text patterns in codebases. |
+
+## ⚙️ Configuration
+
+Customize your agent in `~/.capybara/config.yaml`:
+
+### Model Management
+Quickly check or switch models from the CLI:
+
+```bash
+# Check current model
+capybara model
+
+# Switch to a different model (updates config.yaml)
+capybara model claude-3-5-sonnet-20241022
+capybara model gpt-4o
+```
 
 ```yaml
 providers:
   - name: openai
     model: gpt-4o
-    # api_key: set via OPENAI_API_KEY env var
 
 memory:
   max_tokens: 100000
-  persist: true
 
 tools:
   bash_enabled: true
-  bash_timeout: 120
+  search_replace_enabled: true
+  
+  # Security Policies
+  security:
+    bash:
+      permission: ask  # Always ask before running shell commands
+    write_file:
+      permission: always
 ```
 
-## Built-in Tools
-
-- `read_file`: Read file contents with line numbers
-- `write_file`: Write content to files
-- `edit_file`: Edit files with string replacement
-- `bash`: Execute bash commands
-- `glob`: Find files by pattern
-- `grep`: Search file contents
+## 🤝 Git Standards
+Capybara is trained to be a good team player. All commits generated by the agent are signed:
+```text
+Co-authored-by: Capybara Vibe <agent@capybara.ai>
+```
 
 ## License
-
 MIT

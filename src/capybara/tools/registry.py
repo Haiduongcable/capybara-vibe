@@ -13,6 +13,12 @@ class ToolRegistry:
         self._tools: dict[str, Callable[..., Any]] = {}
         self._schemas: list[dict[str, Any]] = []
 
+    def unregister(self, name: str) -> None:
+        """Unregister a tool by name."""
+        if name in self._tools:
+            del self._tools[name]
+            self._schemas = [s for s in self._schemas if s["function"]["name"] != name]
+
     def tool(
         self,
         name: str,

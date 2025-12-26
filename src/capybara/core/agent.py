@@ -5,14 +5,18 @@ import json
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.live import Live
 from rich.text import Text
 from rich.spinner import Spinner
-from rich.console import Group
+from rich.panel import Panel
+from rich.columns import Columns
+from rich.table import Table
+from rich import box
 
 import re
 from capybara.core.logging import get_logger
+from capybara.tools.builtin.todo import get_todos, TodoStatus
 from capybara.core.streaming import non_streaming_completion, stream_completion
 from capybara.core.config import ToolsConfig
 from capybara.memory.window import ConversationMemory
@@ -121,26 +125,77 @@ class Agent:
         tool_statuses = {tc["id"]: {"name": tc["function"]["name"], "status": "pending"} for tc in tool_calls}
         
         def render_status():
-            items = []
+            # 1. Build Activity Panel (Tools)
+            activity_items = []
             for tc in tool_calls:
                 tid = tc["id"]
                 info = tool_statuses[tid]
                 name = info["name"]
                 status = info["status"]
                 
+                # UX Improvement: Don't show 'todo' tool in the activity list
+                # ONLY IF the plan is already visible (todos exist).
+                # If list is empty, show the tool so user sees we are initializing.
+                if name == "todo" and get_todos():
+                    continue
+                
                 if status == "pending":
-                    # Pending but not started
-                    items.append(Text(f"⏳ {name} (pending)", style="dim"))
+                    activity_items.append(Text(f"⏳ {name} (pending)", style="dim"))
                 elif status == "running":
-                    # Running with spinner
-                    items.append(Group(Spinner("dots", style="cyan"), Text(f" {name}", style="cyan")))
+                    activity_items.append(Group(Spinner("dots", style="cyan"), Text(f" {name}", style="cyan")))
                 elif status == "done":
-                    # Done
-                    items.append(Text(f"✅ {name}", style="green"))
+                    activity_items.append(Text(f"✅ {name}", style="green"))
                 elif status == "error":
-                    items.append(Text(f"❌ {name} (failed)", style="red"))
+                    activity_items.append(Text(f"❌ {name} (failed)", style="red"))
             
-            return Group(*items)
+            activity_panel = Panel(
+                Group(*activity_items),
+                title="[bold blue]Active Capabilities[/bold blue]",
+                border_style="blue",
+                box=box.ROUNDED,
+                padding=(0, 1)
+            )
+
+            # 2. Build Todo Panel (Context)
+            todos = get_todos()
+            
+            todo_items = []
+            for t in todos:
+                icon = "☐"
+                style = "white"
+                
+                if t.status == TodoStatus.COMPLETED:
+                    icon = "☑" # Checked ballot box
+                    style = "dim green"
+                elif t.status == TodoStatus.IN_PROGRESS:
+                    icon = "◎" # Bullseye for focus
+                    style = "bold yellow"
+                elif t.status == TodoStatus.CANCELLED:
+                    icon = "☒"
+                    style = "dim strike"
+                
+                todo_items.append(Text(f" {icon} {t.content}", style=style))
+
+            todo_panel = Panel(
+                Group(*todo_items) if todo_items else Text("No tasks plan created yet.", style="dim"),
+                title="[bold]Plan[/bold]", # Minimal title
+                border_style="dim white",
+                box=box.MINIMAL,      # Minimal border
+                padding=(0, 1),
+                title_align="left"    # Claude style align
+            )
+
+            # 3. Combine Panels Smartly
+            # If no activity (e.g. only todo tool running), just show Plan
+            if not activity_items:
+                 return todo_panel
+            
+            # If no todos, just show Activity (e.g. simple query)
+            if not todos:
+                return activity_panel
+
+            # Both exist: Top-Bottom Stack
+            return Group(activity_panel, todo_panel)
 
         async def execute_one(tc: dict[str, Any]) -> dict[str, Any]:
             tid = tc["id"]

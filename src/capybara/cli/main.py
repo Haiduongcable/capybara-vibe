@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from capybara import __version__
-from capybara.core.config import init_config, load_config
+from capybara.core.config import init_config, load_config, save_config
 from capybara.core.logging import setup_logging
 
 # Initialize logging on module load
@@ -30,18 +30,34 @@ def cli() -> None:
 @cli.command()
 @click.option("--model", "-m", default=None, help="Model to use (default from config)")
 @click.option("--no-stream", is_flag=True, help="Disable streaming output")
-def chat(model: str | None, no_stream: bool) -> None:
-    """Start interactive chat session."""
-    asyncio.run(_chat_async(model, not no_stream))
+@click.option(
+    "--mode", 
+    type=click.Choice(["standard", "safe", "plan", "auto"]), 
+    default="standard",
+    help="Operation mode (standard, safe, plan, auto)"
+)
+@click.argument("message", required=False)
+def chat(message: str | None, model: str | None, no_stream: bool, mode: str) -> None:
+    """Start interactive chat session.
+    
+    Optionally provide a MESSAGE to start the conversation immediately.
+    """
+    asyncio.run(_chat_async(model, not no_stream, mode, message))
 
 
 @cli.command()
 @click.argument("prompt")
 @click.option("--model", "-m", default=None, help="Model to use")
 @click.option("--no-stream", is_flag=True, help="Disable streaming")
-def run(prompt: str, model: str | None, no_stream: bool) -> None:
+@click.option(
+    "--mode", 
+    type=click.Choice(["standard", "safe", "plan", "auto"]), 
+    default="standard",
+    help="Operation mode (standard, safe, plan, auto)"
+)
+def run(prompt: str, model: str | None, no_stream: bool, mode: str) -> None:
     """Run a single prompt and exit."""
-    asyncio.run(_run_async(prompt, model, not no_stream))
+    asyncio.run(_run_async(prompt, model, not no_stream, mode))
 
 
 @cli.command()
@@ -66,6 +82,25 @@ def config() -> None:
 
 
 @cli.command()
+@click.argument("name", required=False)
+def model(name: str | None) -> None:
+    """Get or set the default AI model."""
+    cfg = load_config()
+    
+    if name:
+        if not cfg.providers:
+            console.print("[red]No providers configured.[/red]")
+            return
+            
+        # Update the first provider (assumed default)
+        cfg.providers[0].model = name
+        save_config(cfg)
+        console.print(f"[green]Default model updated to:[/green] {name}")
+    else:
+        console.print(f"[bold]Current default model:[/bold] {cfg.default_model}")
+
+
+@cli.command()
 def sessions() -> None:
     """List recent conversation sessions."""
     asyncio.run(_list_sessions())
@@ -79,17 +114,17 @@ def resume(session_id: str, model: str | None) -> None:
     asyncio.run(_resume_async(session_id, model))
 
 
-async def _chat_async(model: str | None, stream: bool) -> None:
+async def _chat_async(model: str | None, stream: bool, mode: str = "standard", initial_message: str | None = None) -> None:
     """Async chat implementation."""
     from capybara.cli.interactive import interactive_chat
 
     cfg = load_config()
     model = model or cfg.default_model
 
-    await interactive_chat(model=model, stream=stream, config=cfg)
+    await interactive_chat(model=model, stream=stream, config=cfg, mode=mode, initial_message=initial_message)
 
 
-async def _run_async(prompt: str, model: str | None, stream: bool) -> None:
+async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "standard") -> None:
     """Async single-run implementation."""
     from capybara.core.agent import Agent, AgentConfig
     from capybara.core.prompts import build_system_prompt
@@ -105,6 +140,18 @@ async def _run_async(prompt: str, model: str | None, stream: bool) -> None:
     # Setup tools registry
     tools = ToolRegistry()
     tools.merge(default_tools)
+
+    # Apply Mode Logic (Duplicate of interactive.py logic - should refactor, but kept inline for now)
+    from capybara.core.config import ToolSecurityConfig, ToolPermission
+    
+    if mode == "plan":
+        # Remove dangerous tools from registry to hide them
+        for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+            tools.unregister(tool_name)
+    elif mode == "safe":
+        # Force ASK permission
+        for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+             cfg.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
 
     # Setup MCP integration if enabled
     mcp_bridge = None

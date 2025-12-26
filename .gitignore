@@ -3,6 +3,4 @@
 .mypy_cache
 .pytest_cache
 .ruff_cache
-reference-mistral-vibe-cli
-plans
 .coverage

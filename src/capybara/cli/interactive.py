@@ -21,6 +21,7 @@ from capybara.memory.window import ConversationMemory, MemoryConfig
 from capybara.tools.builtin import registry as default_tools
 from capybara.tools.mcp.bridge import MCPBridge
 from capybara.tools.registry import ToolRegistry
+from capybara.tools.base import ToolPermission, ToolSecurityConfig
 
 console = Console()
 logger = get_logger(__name__)
@@ -37,6 +38,8 @@ async def interactive_chat(
     model: str,
     stream: bool = True,
     config: CapybaraConfig | None = None,
+    mode: str = "standard",
+    initial_message: str | None = None,
 ) -> None:
     """Interactive chat loop with async input and streaming output.
 
@@ -44,14 +47,43 @@ async def interactive_chat(
         model: Model to use for completions
         stream: Whether to stream responses
         config: Optional configuration object
+        mode: Operation mode (standard/safe/plan/auto)
     """
     from capybara.core.config import load_config
-
+    
     config = config or load_config()
+    console = Console()
+
+    # Apply Mode Logic
+    if mode != "standard":
+        console.print(f"[bold yellow]Activating mode: {mode.upper()}[/bold yellow]")
+        
+        if mode == "safe":
+            # Force ASK for everything
+            for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+                config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
+                
+        elif mode == "auto":
+            # Force ALWAYS for everything (CAUTION)
+             for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+                config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
+                
+        elif mode == "plan":
+            # Disable dangerous tools
+            for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+                config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.NEVER)
+            # Ensure safe tools are enabled
+            config.tools.security["todo"] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
 
     # Setup tools registry with builtin tools
     tools = ToolRegistry()
     tools.merge(default_tools)
+
+    # Post-Registry Mode Logic (Hiding Tools)
+    if mode == "plan":
+        # Completely hide tools so the agent doesn't even know they exist
+        for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+            tools.unregister(tool_name)
 
     # Setup MCP integration if enabled
     mcp_bridge = None
@@ -116,11 +148,19 @@ async def interactive_chat(
     logger.info(f"Interactive chat session started with model: {model}")
 
     # Main loop
+    first_run = True
     try:
         while True:
             try:
-                with patch_stdout():
-                    user_input = await session.prompt_async(">>> ", key_bindings=bindings)
+                if first_run and initial_message:
+                    # Automatically execute the initial message provided via CLI args
+                    console.print(f">>> {initial_message}")
+                    user_input = initial_message
+                    first_run = False
+                else:
+                    with patch_stdout():
+                        user_input = await session.prompt_async(">>> ", key_bindings=bindings)
+                        first_run = False
 
                 if not user_input.strip():
                     continue

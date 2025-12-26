@@ -2,12 +2,28 @@
 
 from typing import Any, Optional
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.spinner import Spinner
+from rich.text import Text
 
 from capybara.providers.router import ProviderRouter
+import re
+
+def _clean_content(content: str) -> str:
+    """Remove tool call echoes from the model output.
+    
+    Some models echo the tool call as text before executing it, using multiline formatting.
+    This regex uses DOTALL (?s) to match across newlines, stripping the call.
+    """
+    # Whitelist of tools to detect
+    tool_names = r"todo|read_file|write_file|edit_file|search_replace|delete_file|list_directory|glob|grep|bash|which"
+    
+    # Match > toolname(...) across newlines, non-greedy to stop at first closing paren
+    # Note: Does not handle nested parenthesis perfectly, but handles standard repr() output well.
+    p = r'(?s)> \s*(?:' + tool_names + r')\s*\(.*?\)'
+    return re.sub(p, '', content)
 
 
 async def stream_completion(
@@ -36,7 +52,7 @@ async def stream_completion(
 
     spinner = Spinner("dots", text="Thinking...", style="cyan")
     
-    with Live(renderable=spinner, console=console, refresh_per_second=4, transient=True) as live:
+    with Live(renderable=spinner, console=console, refresh_per_second=10, transient=True) as live:
         async for chunk in provider.complete(
             messages=messages,
             model=model,
@@ -52,15 +68,39 @@ async def stream_completion(
             # Collect content
             if delta.content:
                 collected_content.append(delta.content)
-                live.update(Markdown("".join(collected_content)))
+                # Show content + spinner at the bottom while streaming
+                display_content = _clean_content("".join(collected_content))
+                if display_content.strip():
+                     live.update(Group(
+                        Markdown(display_content),
+                        Spinner("dots", style="cyan")
+                    ))
+                else:
+                    live.update(Spinner("dots", style="cyan"))
 
             # Collect tool calls (streamed incrementally)
             if delta.tool_calls:
                 _collect_tool_calls(delta.tool_calls, collected_tool_calls)
+                # If we are only getting tool calls now (content finished or interleaved)
+                # Ensure we still show the spinner with context
+                display_content = _clean_content("".join(collected_content))
+                if display_content.strip():
+                     live.update(Group(
+                        Markdown(display_content),
+                        Text("🔨 Preparing tool execution...", style="dim cyan"),
+                        Spinner("dots", style="cyan")
+                    ))
+                else:
+                    live.update(Group(
+                        Text("🔨 Preparing tool execution...", style="dim cyan"),
+                        Spinner("dots", style="cyan")
+                    ))
 
     # Print final content
-    if collected_content:
-        console.print(Markdown("".join(collected_content)))
+    full_content = "".join(collected_content)
+    clean_content = _clean_content(full_content)
+    if clean_content.strip():
+        console.print(Markdown(clean_content))
 
     return _build_message(collected_content, collected_tool_calls)
 

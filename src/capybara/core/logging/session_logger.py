@@ -47,7 +47,8 @@ class SessionLogManager:
         self,
         session_id: str,
         agent_mode: str = "parent",
-        log_level: str = "INFO"
+        log_level: str = "INFO",
+        parent_session_id: Optional[str] = None
     ) -> SessionLoggerAdapter:
         """Create a session-specific logger with its own log file.
 
@@ -55,10 +56,14 @@ class SessionLogManager:
             session_id: Unique session identifier
             agent_mode: Agent type ('parent' or 'child')
             log_level: Logging level
+            parent_session_id: If provided (for child agents), write to parent's log file instead
 
         Returns:
             SessionLoggerAdapter with session context
         """
+        # Use parent_session_id for log file if provided (child agents)
+        log_session_id = parent_session_id if parent_session_id else session_id
+
         # Create base logger
         logger_name = f"capybara.session.{session_id}"
         logger = logging.getLogger(logger_name)
@@ -72,8 +77,9 @@ class SessionLogManager:
                 {'session_id': session_id, 'agent_mode': agent_mode}
             )
 
-        # Create session log file: sessions/YYYYMMDD/session_{session_id[:8]}.log
-        log_file = self.session_log_dir / f"session_{session_id[:8]}.log"
+        # Create session log file: sessions/YYYYMMDD/session_{log_session_id[:8]}.log
+        # Child agents will write to parent's log file when parent_session_id is provided
+        log_file = self.session_log_dir / f"session_{log_session_id[:8]}.log"
 
         # File handler - detailed format
         file_handler = logging.FileHandler(log_file, encoding="utf-8")

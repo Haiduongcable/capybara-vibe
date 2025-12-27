@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 from capybara.core.agent import Agent, AgentConfig
-from capybara.core.session_manager import SessionManager
+from capybara.core.delegation.session_manager import SessionManager
 from capybara.memory.window import ConversationMemory
 from capybara.memory.storage import ConversationStorage
 from capybara.tools.registry import ToolRegistry
@@ -35,7 +35,7 @@ async def test_delegate_creates_child_session(tmp_path: Path):
     async def mock_run(self, prompt):
         # Publish AGENT_DONE event so progress display completes
         if self.session_id:
-            from capybara.core.event_bus import Event, EventType
+            from capybara.core.delegation.event_bus import Event, EventType
             await self.event_bus.publish(Event(
                 session_id=self.session_id,
                 event_type=EventType.AGENT_DONE,
@@ -183,7 +183,7 @@ async def test_delegate_logs_events(tmp_path: Path):
     async def mock_run(self, prompt):
         # Publish AGENT_DONE event so progress display completes
         if self.session_id:
-            from capybara.core.event_bus import Event, EventType
+            from capybara.core.delegation.event_bus import Event, EventType
             await self.event_bus.publish(Event(
                 session_id=self.session_id,
                 event_type=EventType.AGENT_DONE,
@@ -218,7 +218,7 @@ async def test_delegate_logs_events(tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_child_mode_no_delegation(tmp_path: Path):
-    """Test that child agents cannot use delegate_task."""
+    """Test that child agents cannot use solve_task."""
     from capybara.tools.builtin import register_builtin_tools
 
     storage = ConversationStorage(tmp_path / "test.db")
@@ -245,10 +245,10 @@ async def test_child_mode_no_delegation(tmp_path: Path):
         storage=storage
     )
 
-    # Filter for parent mode (should have delegate_task)
+    # Filter for parent mode (should have solve_task)
     parent_filtered = parent_tools.filter_by_mode(AgentMode.PARENT)
-    assert "delegate_task" in parent_filtered.list_tools()
+    assert "solve_task" in parent_filtered.list_tools()
 
-    # Filter for child mode (should NOT have delegate_task)
+    # Filter for child mode (should NOT have solve_task)
     child_filtered = parent_tools.filter_by_mode(AgentMode.CHILD)
-    assert "delegate_task" not in child_filtered.list_tools()
+    assert "solve_task" not in child_filtered.list_tools()

@@ -8,10 +8,13 @@ src/capybara/cli/main.py
 src/capybara/cli/commands/__init__.py
 src/capybara/core/__init__.py
 src/capybara/core/agent.py
+src/capybara/core/agent_state_manager.py
 src/capybara/core/agent_status.py
+src/capybara/core/agent_ui_renderer.py
 src/capybara/core/child_errors.py
 src/capybara/core/config.py
 src/capybara/core/context.py
+src/capybara/core/delegation_decider.py
 src/capybara/core/event_bus.py
 src/capybara/core/execution_log.py
 src/capybara/core/interrupts.py
@@ -21,6 +24,7 @@ src/capybara/core/prompts.py
 src/capybara/core/safety.py
 src/capybara/core/session_manager.py
 src/capybara/core/streaming.py
+src/capybara/core/tool_executor.py
 src/capybara/core/logging/__init__.py
 src/capybara/core/logging/error_logger.py
 src/capybara/core/logging/event_logger.py
@@ -56,6 +60,7 @@ src/capybara_vibe_coding.egg-info/requires.txt
 src/capybara_vibe_coding.egg-info/top_level.txt
 tests/test_child_errors.py
 tests/test_delegate_tool.py
+tests/test_delegation_decider.py
 tests/test_event_bus.py
 tests/test_execution_log.py
 tests/test_logging.py

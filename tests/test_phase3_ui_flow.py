@@ -4,9 +4,9 @@ import pytest
 from pathlib import Path
 
 from capybara.core.agent import Agent, AgentConfig
-from capybara.core.agent_status import AgentState, AgentStatus
-from capybara.core.event_bus import Event, EventType, get_event_bus
-from capybara.core.session_manager import SessionManager
+from capybara.core.agent.status import AgentState, AgentStatus
+from capybara.core.delegation.event_bus import Event, EventType, get_event_bus
+from capybara.core.delegation.session_manager import SessionManager
 from capybara.memory.storage import ConversationStorage
 from capybara.memory.window import ConversationMemory
 from capybara.tools.base import AgentMode
@@ -173,7 +173,7 @@ async def test_parent_state_updates_during_delegation(tmp_path: Path):
     # Mock child agent run
     async def mock_run(self, prompt):
         if self.session_id:
-            from capybara.core.event_bus import Event, EventType
+            from capybara.core.delegation.event_bus import Event, EventType
             await self.event_bus.publish(Event(
                 session_id=self.session_id,
                 event_type=EventType.AGENT_DONE,

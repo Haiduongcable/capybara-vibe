@@ -13,10 +13,10 @@ from rich.panel import Panel
 
 from capybara.core.agent import Agent, AgentConfig
 from capybara.core.config import CapybaraConfig
-from capybara.core.context import build_project_context
-from capybara.core.interrupts import AgentInterruptException
+from capybara.core.utils.context import build_project_context
+from capybara.core.utils.interrupts import AgentInterruptException
 from capybara.core.logging import get_logger
-from capybara.core.prompts import build_system_prompt
+from capybara.core.utils.prompts import build_system_prompt
 from capybara.memory.storage import ConversationStorage
 from capybara.memory.window import ConversationMemory, MemoryConfig
 from capybara.tools.base import ToolPermission, ToolSecurityConfig
@@ -79,7 +79,7 @@ async def interactive_chat(
 
     # Setup agent with provider router
     from capybara.providers.router import ProviderRouter
-    from capybara.core.session_manager import SessionManager
+    from capybara.core.delegation.session_manager import SessionManager
 
     # Generate session ID for logging
     session_id = str(uuid.uuid4())
@@ -92,26 +92,38 @@ async def interactive_chat(
     project_context = await build_project_context()
     memory.set_system_prompt(build_system_prompt(project_context=project_context))
 
+    # Initialize storage and session manager BEFORE agent creation
+    storage = ConversationStorage()
+    await storage.initialize()
+    session_manager = SessionManager(storage)
+
+    # Setup tools registry WITHOUT delegation first
+    tools = ToolRegistry()
+    from capybara.tools.builtin import register_builtin_tools
+
+    # Register basic tools (no delegation yet, parent_agent=None)
+    register_builtin_tools(
+        tools,
+        parent_session_id=None,  # Don't register solve_task yet
+        parent_agent=None,
+        session_manager=None,
+        storage=None
+    )
+
     provider = ProviderRouter(providers=config.providers, default_model=model)
     agent = Agent(
         config=agent_config,
         memory=memory,
-        tools=ToolRegistry(),  # Temporary empty registry
+        tools=tools,  # Pass full registry with basic tools
         console=console,
         provider=provider,
         tools_config=config.tools,
         session_id=session_id,  # Enable session-based logging
     )
 
-    # Initialize storage and session manager for delegation
-    storage = ConversationStorage()
-    await storage.initialize()
-    session_manager = SessionManager(storage)
-
-    # Setup tools registry with delegation enabled
-    tools = ToolRegistry()
-    from capybara.tools.builtin import register_builtin_tools
-    register_builtin_tools(
+    # NOW register sub-agent tool with actual agent reference
+    from capybara.tools.builtin.delegation import register_sub_agent_tool
+    register_sub_agent_tool(
         tools,
         parent_session_id=session_id,
         parent_agent=agent,
@@ -119,8 +131,9 @@ async def interactive_chat(
         storage=storage
     )
 
-    # Update agent with full tools registry
+    # Filter tools by mode AFTER all tools registered
     agent.tools = tools.filter_by_mode(agent_config.mode)
+    agent.tool_executor.tools = agent.tools  # Update executor reference
 
     # Post-Registry Mode Logic (Hiding Tools)
     if mode == "plan":
@@ -148,12 +161,15 @@ async def interactive_chat(
         if panel_content := todo_panel.render():
             console.print(panel_content)
 
-    # Subscribe to todo state changes (just update internal state, don't render inline)
+    # Subscribe to todo state changes and render immediately
     def on_todos_changed(todos):
-        """Callback when todos are updated - update panel state only."""
-        # Don't render inline - only update internal state
-        # Panel will render after agent completes
-        pass
+        """Callback when todos are updated - render panel immediately."""
+        # Render panel immediately when todos change (even during agent execution)
+        # This ensures users see the todo list as soon as it's created
+        if todos:  # Only render if there are todos
+            console.print()  # Add newline for spacing
+            render_todo_panel()
+            console.print()  # Add newline after panel
 
     from capybara.tools.builtin.todo_state import todo_state
     todo_state.subscribe(on_todos_changed)

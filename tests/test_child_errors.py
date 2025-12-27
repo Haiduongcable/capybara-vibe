@@ -1,7 +1,7 @@
 """Tests for child agent error handling."""
 
 import pytest
-from capybara.core.child_errors import ChildFailure, FailureCategory
+from capybara.core.delegation.child_errors import ChildFailure, FailureCategory
 
 
 def test_timeout_failure_formatting():

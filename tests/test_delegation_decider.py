@@ -1,7 +1,7 @@
 """Tests for DelegationDecider."""
 
 import pytest
-from capybara.core.delegation_decider import DelegationDecider
+from capybara.core.delegation.delegation_decider import DelegationDecider
 from capybara.tools.builtin.todo import TodoItem, TodoStatus
 
 

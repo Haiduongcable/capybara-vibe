@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from capybara.core.session_manager import SessionManager
+from capybara.core.delegation.session_manager import SessionManager
 from capybara.memory.storage import ConversationStorage
 
 

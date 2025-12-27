@@ -1,7 +1,7 @@
 """Tests for execution logging system."""
 
 import pytest
-from capybara.core.execution_log import ExecutionLog, ToolExecution
+from capybara.core.execution.execution_log import ExecutionLog, ToolExecution
 
 
 def test_execution_log_file_tracking():

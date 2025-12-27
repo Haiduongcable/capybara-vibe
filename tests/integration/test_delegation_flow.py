@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 
 from capybara.core.agent import Agent, AgentConfig
-from capybara.core.session_manager import SessionManager
+from capybara.core.delegation.session_manager import SessionManager
 from capybara.memory.window import ConversationMemory
 from capybara.memory.storage import ConversationStorage
 from capybara.tools.registry import ToolRegistry
@@ -58,7 +58,7 @@ async def test_delegation_creates_child_and_completes(tmp_path: Path):
 
     # Mock Agent.run to simulate child execution
     async def mock_child_run(self, prompt):
-        from capybara.core.event_bus import Event, EventType
+        from capybara.core.delegation.event_bus import Event, EventType
         if self.session_id:
             await self.event_bus.publish(Event(
                 session_id=self.session_id,
@@ -71,10 +71,10 @@ async def test_delegation_creates_child_and_completes(tmp_path: Path):
     Agent.run = mock_child_run
 
     try:
-        # Execute delegation via delegate_task tool
+        # Execute task solving via solve_task tool
         result = await parent_agent.tools.execute(
-            "delegate_task",
-            {"prompt": "Test integration task", "timeout": 10.0}
+            "solve_task",
+            {"task": "Test integration task", "timeout": 10.0}
         )
 
         # Verify result contains execution summary
@@ -106,7 +106,7 @@ async def test_delegation_creates_child_and_completes(tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_child_agent_cannot_delegate(tmp_path: Path):
-    """Test that child agent doesn't have access to delegate_task tool."""
+    """Test that child agent doesn't have access to solve_task tool."""
 
     # Setup child agent directly
     child_config = AgentConfig(model="gpt-4", stream=False, mode=AgentMode.CHILD)
@@ -119,9 +119,9 @@ async def test_child_agent_cannot_delegate(tmp_path: Path):
 
     child_agent = Agent(child_config, child_memory, child_tools)
 
-    # Verify delegate_task is not available to child
+    # Verify solve_task is not available to child
     available_tools = child_agent.tools.list_tools()
-    assert "delegate_task" not in available_tools
+    assert "solve_task" not in available_tools
     assert "todo" not in available_tools  # Also verify todo is restricted
 
 

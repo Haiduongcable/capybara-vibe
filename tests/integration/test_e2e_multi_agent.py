@@ -4,8 +4,8 @@ import pytest
 from pathlib import Path
 
 from capybara.core.agent import Agent, AgentConfig
-from capybara.core.agent_status import AgentState
-from capybara.core.session_manager import SessionManager
+from capybara.core.agent.status import AgentState
+from capybara.core.delegation.session_manager import SessionManager
 from capybara.memory.storage import ConversationStorage
 from capybara.memory.window import ConversationMemory
 from capybara.tools.base import AgentMode
@@ -51,7 +51,7 @@ async def test_complete_parent_child_workflow(tmp_path: Path):
         # Simulate child doing work
         if self.execution_log:
             # Add some fake tool executions
-            from capybara.core.execution_log import ToolExecution
+            from capybara.core.execution.execution_log import ToolExecution
             from datetime import datetime, timezone
             
             self.execution_log.tool_executions.append(ToolExecution(
@@ -76,7 +76,7 @@ async def test_complete_parent_child_workflow(tmp_path: Path):
         
         # Publish done event
         if self.session_id:
-            from capybara.core.event_bus import Event, EventType
+            from capybara.core.delegation.event_bus import Event, EventType
             await self.event_bus.publish(Event(
                 session_id=self.session_id,
                 event_type=EventType.AGENT_DONE,
@@ -161,7 +161,7 @@ async def test_child_failure_with_recovery_guidance(tmp_path: Path):
     async def failing_run(self, prompt):
         # Add some successful executions first
         if self.execution_log:
-            from capybara.core.execution_log import ToolExecution
+            from capybara.core.execution.execution_log import ToolExecution
             from datetime import datetime, timezone
             
             self.execution_log.tool_executions.append(ToolExecution(
@@ -239,7 +239,7 @@ async def test_timeout_with_partial_progress(tmp_path: Path):
     async def slow_run(self, prompt):
         # Do some work first
         if self.execution_log:
-            from capybara.core.execution_log import ToolExecution
+            from capybara.core.execution.execution_log import ToolExecution
             from datetime import datetime, timezone
             
             self.execution_log.tool_executions.append(ToolExecution(

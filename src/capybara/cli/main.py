@@ -3,7 +3,7 @@
 import asyncio
 
 # IMPORTANT: Import litellm config FIRST to suppress verbose output
-from capybara.core.litellm_config import suppress_litellm_output
+from capybara.core.config.litellm_config import suppress_litellm_output
 suppress_litellm_output()
 
 import click
@@ -186,8 +186,8 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
     """Async single-run implementation."""
     import uuid
     from capybara.core.agent import Agent, AgentConfig
-    from capybara.core.prompts import build_system_prompt
-    from capybara.core.context import build_project_context
+    from capybara.core.utils.prompts import build_system_prompt
+    from capybara.core.utils.context import build_project_context
     from capybara.memory.window import ConversationMemory, MemoryConfig
     from capybara.tools.builtin import registry as default_tools
     from capybara.tools.mcp.bridge import MCPBridge

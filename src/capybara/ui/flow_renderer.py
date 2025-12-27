@@ -8,7 +8,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.tree import Tree
 
-from capybara.core.agent_status import AgentState, AgentStatus
+from capybara.core.agent.status import AgentState, AgentStatus
 
 
 class CommunicationFlowRenderer:

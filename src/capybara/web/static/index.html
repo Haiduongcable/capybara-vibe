@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capybara Configuration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .provider-item.dragging {
+            opacity: 0.5;
+        }
+
+        .provider-item.drag-over {
+            border-top: 2px solid #3b82f6;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-8">
+            <span class="text-4xl">🦫</span>
+            <h1 class="text-2xl font-bold">Capybara Configuration</h1>
+        </div>
+
+        <!-- Add Provider Section -->
+        <div class="bg-gray-800 rounded-lg p-4 mb-6">
+            <h2 class="text-sm font-semibold text-gray-400 mb-3">Add Provider</h2>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="addProvider('openai')"
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition">OpenAI</button>
+                <button onclick="addProvider('google')"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">Google
+                    AI</button>
+                <button onclick="addProvider('anthropic')"
+                    class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm font-medium transition">Anthropic</button>
+                <button onclick="addProvider('proxy')"
+                    class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium transition">Proxypal</button>
+                <button onclick="addProvider('litellm')"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition">LiteLLM</button>
+                <button onclick="addProvider('custom')"
+                    class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Custom</button>
+            </div>
+        </div>
+
+        <!-- Provider List -->
+        <div class="bg-gray-800 rounded-lg p-4 mb-6">
+            <h2 class="text-sm font-semibold text-gray-400 mb-3">Providers <span class="text-gray-500">(drag to reorder,
+                    first = default)</span></h2>
+            <div id="provider-list" class="space-y-2">
+                <!-- Provider items will be rendered here -->
+            </div>
+            <div id="empty-state" class="text-gray-500 text-center py-8 hidden">
+                No providers configured. Click a button above to add one.
+            </div>
+        </div>
+
+        <!-- Provider Form -->
+        <div id="provider-form" class="bg-gray-800 rounded-lg p-6 mb-6 hidden">
+            <h2 class="text-lg font-semibold mb-4">Provider Details</h2>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Name</label>
+                    <input type="text" id="form-name"
+                        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Model</label>
+                    <div class="relative">
+                        <input type="text" id="form-model" list="model-suggestions"
+                            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 pr-24 focus:outline-none focus:border-blue-500">
+                        <button onclick="fetchModels()" id="fetch-models-btn"
+                            class="absolute right-1 top-1 bottom-1 px-2 bg-gray-600 hover:bg-gray-500 rounded text-xs transition hidden">
+                            ↻ Refresh
+                        </button>
+                    </div>
+                    <datalist id="model-suggestions"></datalist>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">API Key</label>
+                    <input type="password" id="form-api-key"
+                        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div id="api-base-field">
+                    <label class="block text-sm text-gray-400 mb-1">API Base URL <span
+                            class="text-gray-500">(optional)</span></label>
+                    <input type="text" id="form-api-base"
+                        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                        placeholder="https://api.example.com">
+                </div>
+            </div>
+
+            <!-- OpenAI Compatible Toggle -->
+            <div id="openai-compatible-field" class="mb-4 hidden">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="form-openai-compatible"
+                        class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500">
+                    <span class="text-sm">OpenAI Compatible Endpoint</span>
+                    <span class="text-xs text-gray-500">(adds openai/ prefix for LiteLLM routing)</span>
+                </label>
+            </div>
+
+            <!-- Advanced Settings (Collapsible) -->
+            <details class="mb-4">
+                <summary class="text-sm text-gray-400 cursor-pointer hover:text-gray-300">Advanced Settings</summary>
+                <div class="grid grid-cols-3 gap-4 mt-3">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Max Tokens</label>
+                        <input type="number" id="form-max-tokens"
+                            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">RPM (Requests/min)</label>
+                        <input type="number" id="form-rpm"
+                            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">TPM (Tokens/min)</label>
+                        <input type="number" id="form-tpm"
+                            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+            </details>
+
+            <div class="flex gap-2">
+                <button onclick="testConnection()" id="test-btn"
+                    class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded text-sm transition">
+                    Test Connection
+                </button>
+                <span id="test-result" class="self-center text-sm"></span>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-between">
+            <button onclick="cancel()"
+                class="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition">Cancel</button>
+            <button onclick="saveConfig()"
+                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition">Save
+                Configuration</button>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let providers = [];
+        let selectedIndex = -1;
+
+        // Model suggestions per provider type
+        const MODELS = {
+            openai: ['gpt-4o', 'gpt-5', 'o1', 'o1-mini', 'o1-preview'],
+            google: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-pro'],
+            anthropic: ['claude-4-5-sonnet'],
+            proxy: ['gemini-3-pro-preview', 'gpt-5.1-codex', 'claude-4-sonnet', 'gpt-4o'],
+            litellm: [],
+            custom: []
+        };
+
+        // Default values per type
+        const DEFAULTS = {
+            openai: { type: 'openai', name: 'OpenAI', model: 'gpt-4o', api_key: '', api_base: '', openai_compatible: false, max_tokens: 8000, rpm: 3500, tpm: 90000 },
+            google: { type: 'google', name: 'Google AI', model: 'gemini-2.0-flash', api_key: '', api_base: '', openai_compatible: false, max_tokens: 8192, rpm: 60, tpm: 100000 },
+            anthropic: { type: 'anthropic', name: 'Anthropic', model: 'claude-3-5-sonnet-20241022', api_key: '', api_base: '', openai_compatible: false, max_tokens: 8192, rpm: 50, tpm: 100000 },
+            proxy: { type: 'proxy', name: 'Proxypal', model: 'gemini-3-pro-preview', api_base: 'http://127.0.0.1:8317', api_key: 'proxypal-local', openai_compatible: true, max_tokens: 8000, rpm: 100, tpm: 100000 },
+            litellm: { type: 'litellm', name: 'LiteLLM', model: '', api_base: 'http://localhost:4000', api_key: '', openai_compatible: false, max_tokens: 8000, rpm: 100, tpm: 100000 },
+            custom: { type: 'custom', name: 'Custom', model: '', api_base: '', api_key: '', openai_compatible: true, max_tokens: 8000, rpm: 100, tpm: 100000 }
+        };
+
+        // Load config on page load
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/config');
+                const data = await res.json();
+                providers = data.providers || [];
+                renderProviderList();
+                if (providers.length > 0) {
+                    selectProvider(0);
+                }
+            } catch (e) {
+                console.error('Failed to load config:', e);
+            }
+        }
+
+        // Render provider list
+        function renderProviderList() {
+            const list = document.getElementById('provider-list');
+            const emptyState = document.getElementById('empty-state');
+
+            if (providers.length === 0) {
+                list.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                document.getElementById('provider-form').classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            list.innerHTML = providers.map((p, i) => `
+                <div class="provider-item flex items-center gap-3 p-3 bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-600 ${i === selectedIndex ? 'ring-2 ring-blue-500' : ''}"
+                     draggable="true"
+                     data-index="${i}"
+                     onclick="selectProvider(${i})"
+                     ondragstart="handleDragStart(event)"
+                     ondragover="handleDragOver(event)"
+                     ondrop="handleDrop(event)"
+                     ondragend="handleDragEnd(event)">
+                    <span class="text-gray-400 cursor-grab">☰</span>
+                    <span class="flex-1">
+                        <span class="font-medium">${escapeHtml(p.name)}</span>
+                        <span class="text-gray-400 text-sm ml-2">${escapeHtml(p.model)}</span>
+                        ${i === 0 ? '<span class="text-xs bg-blue-600 px-2 py-0.5 rounded ml-2">default</span>' : ''}
+                    </span>
+                    <span class="text-xs text-gray-500 uppercase">${p.type}</span>
+                    <button onclick="event.stopPropagation(); deleteProvider(${i})" class="text-gray-400 hover:text-red-400 text-xl">&times;</button>
+                </div>
+            `).join('');
+        }
+
+        // Select a provider for editing
+        function selectProvider(index) {
+            selectedIndex = index;
+            renderProviderList();
+
+            const p = providers[index];
+            const form = document.getElementById('provider-form');
+            form.classList.remove('hidden');
+
+            // Fill form
+            document.getElementById('form-name').value = p.name;
+            document.getElementById('form-model').value = p.model;
+            document.getElementById('form-api-key').value = p.api_key;
+            document.getElementById('form-api-base').value = p.api_base || '';
+            document.getElementById('form-openai-compatible').checked = p.openai_compatible;
+            document.getElementById('form-max-tokens').value = p.max_tokens;
+            document.getElementById('form-rpm').value = p.rpm;
+            document.getElementById('form-tpm').value = p.tpm;
+
+            // Update model suggestions
+            updateModelSuggestions(p.type);
+
+            // Show/hide OpenAI compatible toggle
+            const compatField = document.getElementById('openai-compatible-field');
+            if (p.type === 'custom' || p.type === 'litellm') {
+                compatField.classList.remove('hidden');
+            } else {
+                compatField.classList.add('hidden');
+            }
+
+            // Show fetch models button for proxy/custom/openai/compatible
+            const fetchBtn = document.getElementById('fetch-models-btn');
+            if (p.type === 'proxy' || p.type === 'custom' || p.type === 'litellm' || p.openai_compatible) {
+                fetchBtn.classList.remove('hidden');
+            } else {
+                fetchBtn.classList.add('hidden');
+            }
+
+            // Clear test result
+            document.getElementById('test-result').textContent = '';
+        }
+
+        // Update model suggestions datalist
+        function updateModelSuggestions(type) {
+            const datalist = document.getElementById('model-suggestions');
+            const models = MODELS[type] || [];
+            datalist.innerHTML = models.map(m => `<option value="${m}">`).join('');
+        }
+
+        // Add new provider
+        function addProvider(type) {
+            const newProvider = { ...DEFAULTS[type] };
+            providers.push(newProvider);
+            selectedIndex = providers.length - 1;
+            renderProviderList();
+            selectProvider(selectedIndex);
+        }
+
+        // Delete provider
+        function deleteProvider(index) {
+            providers.splice(index, 1);
+            if (selectedIndex >= providers.length) {
+                selectedIndex = providers.length - 1;
+            }
+            renderProviderList();
+            if (providers.length > 0 && selectedIndex >= 0) {
+                selectProvider(selectedIndex);
+            } else {
+                document.getElementById('provider-form').classList.add('hidden');
+            }
+        }
+
+        // Sync form to state
+        function syncFormToState() {
+            if (selectedIndex < 0) return;
+            const p = providers[selectedIndex];
+            p.name = document.getElementById('form-name').value;
+            p.model = document.getElementById('form-model').value;
+            p.api_key = document.getElementById('form-api-key').value;
+            p.api_base = document.getElementById('form-api-base').value;
+            p.openai_compatible = document.getElementById('form-openai-compatible').checked;
+            p.max_tokens = parseInt(document.getElementById('form-max-tokens').value) || 8000;
+            p.rpm = parseInt(document.getElementById('form-rpm').value) || 100;
+            p.tpm = parseInt(document.getElementById('form-tpm').value) || 100000;
+            renderProviderList();
+        }
+
+        // Add input listeners for live sync
+        document.querySelectorAll('#provider-form input').forEach(input => {
+            input.addEventListener('input', syncFormToState);
+            input.addEventListener('change', syncFormToState);
+        });
+
+        // Drag and drop handlers
+        let draggedIndex = null;
+
+        function handleDragStart(e) {
+            draggedIndex = parseInt(e.target.dataset.index);
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            const item = e.target.closest('.provider-item');
+            if (item) {
+                document.querySelectorAll('.provider-item').forEach(i => i.classList.remove('drag-over'));
+                item.classList.add('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const targetItem = e.target.closest('.provider-item');
+            if (targetItem && draggedIndex !== null) {
+                const targetIndex = parseInt(targetItem.dataset.index);
+                if (draggedIndex !== targetIndex) {
+                    const [moved] = providers.splice(draggedIndex, 1);
+                    providers.splice(targetIndex, 0, moved);
+                    selectedIndex = targetIndex;
+                    renderProviderList();
+                    selectProvider(selectedIndex);
+                }
+            }
+            document.querySelectorAll('.provider-item').forEach(i => i.classList.remove('drag-over'));
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.provider-item').forEach(i => i.classList.remove('drag-over'));
+            draggedIndex = null;
+        }
+
+        // Test connection
+        async function testConnection() {
+            if (selectedIndex < 0) return;
+
+            syncFormToState();
+            const provider = providers[selectedIndex];
+            const resultEl = document.getElementById('test-result');
+            const btn = document.getElementById('test-btn');
+
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            resultEl.textContent = '';
+
+            try {
+                const res = await fetch('/api/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    resultEl.textContent = '✓ ' + data.message;
+                    resultEl.className = 'self-center text-sm text-green-400';
+                } else {
+                    resultEl.textContent = '✗ ' + data.message;
+                    resultEl.className = 'self-center text-sm text-red-400';
+                }
+            } catch (e) {
+                resultEl.textContent = '✗ Connection failed';
+                resultEl.className = 'self-center text-sm text-red-400';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Test Connection';
+        }
+
+        // Fetch models
+        async function fetchModels() {
+            if (selectedIndex < 0) return;
+
+            syncFormToState();
+            const provider = providers[selectedIndex];
+            const btn = document.getElementById('fetch-models-btn');
+            const originalText = btn.textContent;
+
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            try {
+                const res = await fetch('/api/fetch-models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider })
+                });
+                const data = await res.json();
+
+                if (data.success && data.models.length > 0) {
+                    // Update current provider's model list cache (optional, effectively just updating UI for now)
+                    // If type is proxy, update global cache or just suggestions
+                    if (provider.type === 'proxy') {
+                        MODELS.proxy = data.models;
+                    }
+
+                    // Update datalist
+                    const datalist = document.getElementById('model-suggestions');
+                    datalist.innerHTML = data.models.map(m => `<option value="${m}">`).join('');
+
+                    // Visual feedback
+                    btn.textContent = '✓';
+                    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+                } else {
+                    alert('Failed to fetch models: ' + (data.message || 'Unknown error'));
+                    btn.textContent = '✗';
+                    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Connection error fetching models');
+                btn.textContent = '✗';
+                setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+            }
+        }
+
+        // Save config
+        async function saveConfig() {
+            syncFormToState();
+
+            try {
+                await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ providers })
+                });
+
+                // Shutdown server
+                await fetch('/api/shutdown', { method: 'POST' });
+
+                // Show success message
+                document.body.innerHTML = `
+                    <div class="flex items-center justify-center min-h-screen bg-gray-900">
+                        <div class="text-center">
+                            <div class="text-6xl mb-4">✓</div>
+                            <h1 class="text-2xl font-bold text-green-400 mb-2">Configuration Saved!</h1>
+                            <p class="text-gray-400">You can close this tab.</p>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                alert('Failed to save configuration: ' + e.message);
+            }
+        }
+
+        // Cancel
+        async function cancel() {
+            try {
+                await fetch('/api/shutdown', { method: 'POST' });
+            } catch (e) { }
+
+            document.body.innerHTML = `
+                <div class="flex items-center justify-center min-h-screen bg-gray-900">
+                    <div class="text-center">
+                        <h1 class="text-2xl font-bold text-gray-400 mb-2">Configuration Cancelled</h1>
+                        <p class="text-gray-500">You can close this tab.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize
+        loadConfig();
+    </script>
+</body>
+
+</html>

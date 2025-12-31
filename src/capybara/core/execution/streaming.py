@@ -18,7 +18,7 @@ def _clean_content(content: str) -> str:
     This regex uses DOTALL (?s) to match across newlines, stripping the call.
     """
     # Whitelist of tools to detect
-    tool_names = r"todo|read_file|write_file|edit_file|search_replace|delete_file|list_directory|glob|grep|bash|which"
+    tool_names = r"todo|read_file|write_file|edit_file|delete_file|list_directory|glob|grep|bash|which"
     
     # Match > toolname(...) across newlines, non-greedy to stop at first closing paren
     # Note: Does not handle nested parenthesis perfectly, but handles standard repr() output well.

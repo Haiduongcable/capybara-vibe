@@ -62,17 +62,17 @@ async def interactive_chat(
 
         if mode == "safe":
             # Force ASK for everything
-            for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+            for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
                 config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
 
         elif mode == "auto":
             # Force ALWAYS for everything (CAUTION)
-             for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+             for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
                 config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
 
         elif mode == "plan":
             # Disable dangerous tools
-            for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+            for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
                 config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.NEVER)
             # Ensure safe tools are enabled
             config.tools.security["todo"] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
@@ -142,7 +142,7 @@ async def interactive_chat(
     # Post-Registry Mode Logic (Hiding Tools)
     if mode == "plan":
         # Completely hide tools so the agent doesn't even know they exist
-        for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+        for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
             agent.tools.unregister(tool_name)
 
     # Setup MCP integration if enabled

@@ -15,22 +15,32 @@ def register_filesystem_tools(registry: ToolRegistry) -> None:
         name="read_file",
         description="""Read contents of a file.
 
-Usage:
-- Returns file content with line numbers
-- Supports offset/limit for large files
-- Use for reading code, config, or any text file""",
+Parameters:
+- path: Absolute path to the file (required)
+- offset: Line number to start from, 1-indexed (default: 1)
+- limit: Maximum lines to read (default: 500)
+
+Returns: File content with line numbers in format "  42|content"
+
+Example:
+  read_file(path="/path/to/file.py")
+  read_file(path="/path/to/file.py", offset=100, limit=50)
+
+Notes:
+- Always read a file before editing to see exact content
+- Use for code, config, logs, or any text file""",
         parameters={
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Absolute path to the file"},
                 "offset": {
                     "type": "integer",
-                    "description": "Line number to start from (1-indexed)",
+                    "description": "Line number to start from (1-indexed, default: 1)",
                     "default": 1,
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Max lines to read",
+                    "description": "Maximum lines to read (default: 500)",
                     "default": 500,
                 },
             },
@@ -59,16 +69,24 @@ Usage:
 
     @registry.tool(
         name="write_file",
-        description="""Write content to a file, creating if needed.
+        description="""Write content to a file, creating it if needed.
 
-Usage:
+Parameters:
+- path: Absolute file path (required)
+- content: Full content to write (required)
+
+Example:
+  write_file(path="/path/to/file.py", content="def hello():\\n    return 'world'")
+
+Notes:
 - Creates parent directories automatically
-- Overwrites existing content""",
+- Overwrites existing file content completely
+- Use edit_file for partial changes to existing files""",
         parameters={
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Absolute file path"},
-                "content": {"type": "string", "description": "Content to write"},
+                "content": {"type": "string", "description": "Full content to write to file"},
             },
             "required": ["path", "content"],
         },
@@ -88,19 +106,32 @@ Usage:
         name="edit_file",
         description="""Edit file by replacing old_string with new_string.
 
-Usage:
-- old_string must be unique in the file (unless replace_all=true)
-- Use replace_all=true to replace all occurrences
-- Returns diff-style output showing changes""",
+Parameters:
+- path: Absolute file path
+- old_string: Exact text to find and replace (must exist in file)
+- new_string: Text to replace it with (must be different from old_string)
+- replace_all: If true, replace all occurrences; if false (default), old_string must be unique
+
+Example:
+  edit_file(
+    path="/path/to/file.py",
+    old_string="def hello():\\n    return 'old'",
+    new_string="def hello():\\n    return 'new'"
+  )
+
+Notes:
+- Use read_file first to see exact content and whitespace
+
+- Returns diff showing what changed""",
         parameters={
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Absolute file path"},
-                "old_string": {"type": "string", "description": "Text to replace"},
-                "new_string": {"type": "string", "description": "Replacement text"},
+                "old_string": {"type": "string", "description": "Exact text to find (must exist in file)"},
+                "new_string": {"type": "string", "description": "Replacement text (must differ from old_string)"},
                 "replace_all": {
                     "type": "boolean",
-                    "description": "Replace all occurrences",
+                    "description": "Replace all occurrences (default: false, requires unique old_string)",
                     "default": False,
                 },
             },

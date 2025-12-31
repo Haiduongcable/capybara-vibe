@@ -61,11 +61,29 @@ def run(prompt: str, model: str | None, no_stream: bool, mode: str) -> None:
 
 
 @cli.command()
-def init() -> None:
-    """Initialize configuration in ~/.capybara/"""
-    config_path = init_config()
-    console.print(f"[green]Configuration initialized at:[/green] {config_path}")
-    console.print("[dim]Edit this file to configure providers, memory, and tools.[/dim]")
+@click.option("--cli", "use_cli", is_flag=True, help="Use CLI prompts instead of web UI")
+@click.option("--no-browser", is_flag=True, help="Don't auto-open browser (print URL instead)")
+def init(use_cli: bool, no_browser: bool) -> None:
+    """Initialize configuration via web UI.
+
+    Opens a local web server with a configuration UI in your browser.
+    Use --cli for terminal-only environments.
+    """
+    if use_cli:
+        # Fallback to simple config creation
+        config_path = init_config()
+        console.print(f"[green]Configuration initialized at:[/green] {config_path}")
+        console.print("[dim]Edit this file to configure providers, memory, and tools.[/dim]")
+    else:
+        # Web UI
+        console.print("[bold]Starting configuration UI...[/bold]")
+        try:
+            from capybara.web.server import run_server
+
+            asyncio.run(run_server(open_browser=not no_browser))
+            console.print("[green]Configuration saved![/green]")
+        except KeyboardInterrupt:
+            console.print("[dim]Configuration cancelled.[/dim]")
 
 
 @cli.command()
@@ -205,11 +223,11 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
 
     if mode == "plan":
         # Remove dangerous tools from registry to hide them
-        for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+        for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
             tools.unregister(tool_name)
     elif mode == "safe":
         # Force ASK permission
-        for tool_name in ["bash", "write_file", "edit_file", "search_replace", "delete_file"]:
+        for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
              cfg.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
 
     # Setup MCP integration if enabled

@@ -4,6 +4,7 @@ from typing import Any, AsyncIterator, Optional
 
 import litellm
 from litellm import Router
+from litellm.router import RetryPolicy, AllowedFailsPolicy
 
 from capybara.core.config import ProviderConfig
 from capybara.core.logging.api_logger import APILogger
@@ -27,11 +28,12 @@ class ProviderRouter:
         if session_id:
             self.api_logger = APILogger(session_id)
 
-        if providers and len(providers) > 1:
+        # Always init router to get retry/rate-limit handling (even with 1 provider)
+        if providers:
             self._init_router(providers)
 
     def _init_router(self, providers: list[ProviderConfig]) -> None:
-        """Initialize LiteLLM router with multiple providers."""
+        """Initialize LiteLLM router with retry and rate-limit handling."""
         model_list = []
         for provider in providers:
             model_config: dict[str, Any] = {
@@ -45,14 +47,35 @@ class ProviderRouter:
             if provider.api_key:
                 model_config["litellm_params"]["api_key"] = provider.api_key
             if provider.api_base:
-                model_config["litellm_params"]["api_base"] = provider.api_base
+                api_base = provider.api_base
+                # Auto-append /v1 for OpenAI-compatible, custom-base models (indicated by openai/ prefix)
+                # to prevent 404s when user only provides the base URL.
+                if provider.model.startswith("openai/") and not api_base.endswith("/v1"):
+                     api_base = f"{api_base.rstrip('/')}/v1"
+                
+                model_config["litellm_params"]["api_base"] = api_base
             model_list.append(model_config)
+
+        # Retry policy: 5 retries for rate limit errors with exponential backoff
+        retry_policy = RetryPolicy(
+            RateLimitErrorRetries=5,
+            TimeoutErrorRetries=3,
+            ServiceUnavailableErrorRetries=3,
+        )
+
+        # Allow more rate limit errors before cooling down deployment
+        allowed_fails_policy = AllowedFailsPolicy(
+            RateLimitErrorAllowedFails=100,
+        )
 
         self._router = Router(
             model_list=model_list,
             routing_strategy="simple-shuffle",
-            retry_after=5,
+            retry_after=7,  # Wait 7s before retry (based on API error message)
             num_retries=5,
+            cooldown_time=10,  # Cooldown for 10s after failures
+            retry_policy=retry_policy,
+            allowed_fails_policy=allowed_fails_policy,
         )
 
     def _get_provider_config(self, model: str) -> Optional[ProviderConfig]:
@@ -108,6 +131,7 @@ class ProviderRouter:
 
         if tools:
             kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
 
         if stream:
             kwargs["stream_options"] = {"include_usage": True}
@@ -121,7 +145,10 @@ class ProviderRouter:
                     if provider_config.api_key:
                         kwargs["api_key"] = provider_config.api_key
                     if provider_config.api_base:
-                        kwargs["api_base"] = provider_config.api_base
+                        api_base = provider_config.api_base
+                        if provider_config.model.startswith("openai/") and not api_base.endswith("/v1"):
+                             api_base = f"{api_base.rstrip('/')}/v1"
+                        kwargs["api_base"] = api_base
                 response = await litellm.acompletion(**kwargs)
 
             # Collect chunks for logging
@@ -191,6 +218,7 @@ class ProviderRouter:
 
         if tools:
             kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
 
         try:
             if self._router:
@@ -201,7 +229,10 @@ class ProviderRouter:
                     if provider_config.api_key:
                         kwargs["api_key"] = provider_config.api_key
                     if provider_config.api_base:
-                        kwargs["api_base"] = provider_config.api_base
+                        api_base = provider_config.api_base
+                        if provider_config.model.startswith("openai/") and not api_base.endswith("/v1"):
+                             api_base = f"{api_base.rstrip('/')}/v1"
+                        kwargs["api_base"] = api_base
                 response = await litellm.acompletion(**kwargs)
 
             # Log successful response

@@ -14,7 +14,6 @@ class ToolsConfig(BaseModel):
     bash_timeout: int = 120
     filesystem_enabled: bool = True
     allowed_paths: list[str] = Field(default_factory=lambda: ["."])
-    search_replace_enabled: bool = True
     
     # Permission settings
     security: dict[str, ToolSecurityConfig] = Field(default_factory=dict)

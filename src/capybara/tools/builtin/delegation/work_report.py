@@ -51,21 +51,20 @@ Errors Encountered ({len(execution_log.errors)}):
 {chr(10).join(error_lines)}
 """
 
+    # Extract first 300 chars of response as summary (avoid duplication in parent's output)
+    response_summary = response[:300] + "..." if len(response) > 300 else response
+
     return f"""Sub-agent Work Report (Session: {session_id})
-Duration: {duration:.2f}s
-Success Rate: {execution_log.success_rate:.0%}
+Duration: {duration:.2f}s | Success Rate: {execution_log.success_rate:.0%}
 
-Work Completed:
-{response}
+Quick Summary:
+{response_summary}
 
-Files Modified ({len(execution_log.files_modified)}):
-{files_modified_list}
-
-Files Read ({len(execution_log.files_read)}):
-{files_read_list}
+Files Modified ({len(execution_log.files_modified)}): {files_modified_list}
+Files Read ({len(execution_log.files_read)}): {files_read_list}
 
 Tools Used ({len(execution_log.tool_executions)} total):
 {tool_summary}
 {error_section}
 ---
-Parent Agent: Review above report and continue with your workflow."""
+Parent: Use this concise report to inform your response. Don't repeat the full child response."""

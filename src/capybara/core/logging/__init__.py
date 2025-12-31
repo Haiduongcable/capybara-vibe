@@ -17,6 +17,7 @@ from typing import Optional
 from .session_logger import SessionLoggerAdapter, SessionLogManager, get_session_log_manager
 from .error_logger import ErrorLogManager, get_error_log_manager, log_error
 from .event_logger import log_agent_behavior, log_delegation, log_tool_execution, log_state_change
+from .api_logger import APILogger
 
 __all__ = [
     # Session logging
@@ -32,6 +33,8 @@ __all__ = [
     'log_delegation',
     'log_tool_execution',
     'log_state_change',
+    # API logging
+    'APILogger',
     # Base setup
     'setup_logging',
     'get_logger',

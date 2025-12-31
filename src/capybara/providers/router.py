@@ -6,6 +6,7 @@ import litellm
 from litellm import Router
 
 from capybara.core.config import ProviderConfig
+from capybara.core.logging.api_logger import APILogger
 
 
 class ProviderRouter:
@@ -15,10 +16,16 @@ class ProviderRouter:
         self,
         providers: list[ProviderConfig] | None = None,
         default_model: str = "gpt-4o",
+        session_id: str | None = None,
     ) -> None:
         self.default_model = default_model
         self._router: Optional[Router] = None
         self._providers = providers or []
+        self.api_logger: Optional[APILogger] = None
+
+        # Initialize API logger if session_id provided
+        if session_id:
+            self.api_logger = APILogger(session_id)
 
         if providers and len(providers) > 1:
             self._init_router(providers)
@@ -77,6 +84,16 @@ class ProviderRouter:
         """
         model = model or self.default_model
 
+        # Log request if logger available
+        request_id = None
+        if self.api_logger:
+            request_id = self.api_logger.log_request(
+                messages=messages,
+                model=model,
+                tools=tools,
+                metadata={"stream": stream, "timeout": timeout},
+            )
+
         # Get provider config for max_tokens
         provider_config = self._get_provider_config(model)
         max_tokens = provider_config.max_tokens if provider_config else 8000
@@ -95,22 +112,40 @@ class ProviderRouter:
         if stream:
             kwargs["stream_options"] = {"include_usage": True}
 
-        if self._router:
-            response = await self._router.acompletion(**kwargs)
-        else:
-            # Pass api_key and api_base directly when not using router
-            if provider_config:
-                if provider_config.api_key:
-                    kwargs["api_key"] = provider_config.api_key
-                if provider_config.api_base:
-                    kwargs["api_base"] = provider_config.api_base
-            response = await litellm.acompletion(**kwargs)
+        try:
+            if self._router:
+                response = await self._router.acompletion(**kwargs)
+            else:
+                # Pass api_key and api_base directly when not using router
+                if provider_config:
+                    if provider_config.api_key:
+                        kwargs["api_key"] = provider_config.api_key
+                    if provider_config.api_base:
+                        kwargs["api_base"] = provider_config.api_base
+                response = await litellm.acompletion(**kwargs)
 
-        if stream:
-            async for chunk in response:
-                yield chunk
-        else:
-            yield response
+            # Collect chunks for logging
+            collected_chunks = []
+            if stream:
+                async for chunk in response:
+                    collected_chunks.append(chunk)
+                    yield chunk
+            else:
+                collected_chunks.append(response)
+                yield response
+
+            # Log successful response
+            if self.api_logger and request_id:
+                self.api_logger.log_response(
+                    request_id=request_id,
+                    response={"chunks": len(collected_chunks), "streamed": stream},
+                )
+
+        except Exception as e:
+            # Log error
+            if self.api_logger and request_id:
+                self.api_logger.log_response(request_id=request_id, response=None, error=e)
+            raise
 
     async def complete_non_streaming(
         self,
@@ -132,6 +167,16 @@ class ProviderRouter:
         """
         model = model or self.default_model
 
+        # Log request if logger available
+        request_id = None
+        if self.api_logger:
+            request_id = self.api_logger.log_request(
+                messages=messages,
+                model=model,
+                tools=tools,
+                metadata={"stream": False, "timeout": timeout},
+            )
+
         # Get provider config for max_tokens
         provider_config = self._get_provider_config(model)
         max_tokens = provider_config.max_tokens if provider_config else 8000
@@ -147,13 +192,26 @@ class ProviderRouter:
         if tools:
             kwargs["tools"] = tools
 
-        if self._router:
-            return await self._router.acompletion(**kwargs)
-        else:
-            # Pass api_key and api_base directly when not using router
-            if provider_config:
-                if provider_config.api_key:
-                    kwargs["api_key"] = provider_config.api_key
-                if provider_config.api_base:
-                    kwargs["api_base"] = provider_config.api_base
-            return await litellm.acompletion(**kwargs)
+        try:
+            if self._router:
+                response = await self._router.acompletion(**kwargs)
+            else:
+                # Pass api_key and api_base directly when not using router
+                if provider_config:
+                    if provider_config.api_key:
+                        kwargs["api_key"] = provider_config.api_key
+                    if provider_config.api_base:
+                        kwargs["api_base"] = provider_config.api_base
+                response = await litellm.acompletion(**kwargs)
+
+            # Log successful response
+            if self.api_logger and request_id:
+                self.api_logger.log_response(request_id=request_id, response=response)
+
+            return response
+
+        except Exception as e:
+            # Log error
+            if self.api_logger and request_id:
+                self.api_logger.log_response(request_id=request_id, response=None, error=e)
+            raise

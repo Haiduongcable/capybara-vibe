@@ -110,7 +110,11 @@ async def interactive_chat(
         storage=None
     )
 
-    provider = ProviderRouter(providers=config.providers, default_model=model)
+    provider = ProviderRouter(
+        providers=config.providers,
+        default_model=model,
+        session_id=session_id,  # Enable API request logging
+    )
     agent = Agent(
         config=agent_config,
         memory=memory,
@@ -330,8 +334,7 @@ async def interactive_chat_with_session(
 
     # Load initial messages if provided
     if initial_messages:
-        for msg in initial_messages:
-            memory.add(msg)
+        memory.add_batch(initial_messages)
 
     provider = ProviderRouter(providers=config.providers, default_model=model)
     agent = Agent(

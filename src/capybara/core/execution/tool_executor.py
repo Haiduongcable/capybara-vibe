@@ -15,6 +15,7 @@ from capybara.core.logging import SessionLoggerAdapter, get_logger, log_error, l
 from capybara.core.config.settings import ToolsConfig
 from capybara.tools.base import AgentMode, ToolPermission
 from capybara.tools.registry import ToolRegistry
+from capybara.ui.diff_renderer import render_diff
 
 logger = get_logger(__name__)
 
@@ -99,22 +100,9 @@ class ToolExecutor:
             tid = tc["id"]
             name = tc["function"]["name"]
 
-            # Publish tool start event
-            if self.session_id and self.event_bus:
-                await self.event_bus.publish(
-                    Event(
-                        session_id=self.session_id,
-                        event_type=EventType.TOOL_START,
-                        tool_name=name,
-                        metadata={"tool_call_id": tid},
-                    )
-                )
-
-            tool_statuses[tid]["status"] = "running"
-
             args_str = tc["function"]["arguments"]
 
-            # Parse arguments
+            # Parse arguments first (needed for event)
             try:
                 args = json.loads(args_str)
             except json.JSONDecodeError as e:
@@ -141,6 +129,19 @@ class ToolExecutor:
                     "tool_call_id": tid,
                     "content": f"Error: Invalid JSON arguments: {e}",
                 }
+
+            # Publish tool start event (with parsed arguments for progress display)
+            if self.session_id and self.event_bus:
+                await self.event_bus.publish(
+                    Event(
+                        session_id=self.session_id,
+                        event_type=EventType.TOOL_START,
+                        tool_name=name,
+                        metadata={"tool_call_id": tid, "args": args},
+                    )
+                )
+
+            tool_statuses[tid]["status"] = "running"
 
             # Permission check
             if not await self._check_permission(name, args):
@@ -185,6 +186,11 @@ class ToolExecutor:
                 # Check if result is an error string (semantic failure)
                 result_str = str(result)
                 is_error_result = result_str.startswith("Error:")
+
+                # Display diff output for edit_file tool (if successful)
+                if not is_error_result and name == "edit_file" and "Update(" in result_str:
+                    file_path = args.get("path", "unknown file")
+                    render_diff(result_str, file_path, self.console)
 
                 if is_error_result:
                     # Tool returned error - treat as failure for logging
@@ -261,17 +267,28 @@ class ToolExecutor:
                 "content": result if isinstance(result, str) else json.dumps(result),
             }
 
-        # Run with Live display
-        with Live(
-            render_status(), console=self.console, refresh_per_second=10, transient=True
-        ) as live:
+        # Check if we're executing sub_agent (which has its own progress display)
+        has_sub_agent = any(tc["function"]["name"] == "sub_agent" for tc in tool_calls)
+
+        # Run with Live display (unless executing sub_agent which has its own UI)
+        if has_sub_agent:
+            # Sub-agent handles its own progress display, don't show Live panel
             results = await asyncio.gather(
                 *[execute_one(tc) for tc in tool_calls],
                 return_exceptions=True,
             )
+        else:
+            # Normal tools: show Live status panel
+            with Live(
+                render_status(), console=self.console, refresh_per_second=10, transient=True
+            ) as live:
+                results = await asyncio.gather(
+                    *[execute_one(tc) for tc in tool_calls],
+                    return_exceptions=True,
+                )
 
-            # Final update
-            live.update(render_status())
+                # Final update
+                live.update(render_status())
 
         # Process results
         processed: list[dict[str, Any]] = []

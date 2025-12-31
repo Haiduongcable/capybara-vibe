@@ -158,8 +158,13 @@ class Agent:
 
         self.memory.add({"role": "user", "content": user_input})
 
+        # Track current turn for logging
+        self._current_turn = 0
+
         try:
             for turn in range(self.config.max_turns):
+                self._current_turn = turn + 1  # Store for logging
+
                 if self.session_logger:
                     self.session_logger.info(f"Turn {turn + 1}/{self.config.max_turns}")
                 else:
@@ -258,6 +263,14 @@ class Agent:
         """Get completion from LLM (streaming or non-streaming)."""
         tool_schemas = self.tools.schemas if self.tools.schemas else None
         messages = self.memory.get_messages()
+
+        # Log memory state before API call if provider has logger
+        if hasattr(self.provider, 'api_logger') and self.provider.api_logger:
+            self.provider.api_logger.log_memory_state(
+                messages=messages,
+                token_count=self.memory.get_token_count(),
+                context=f"before_completion_turn_{self._current_turn}",
+            )
 
         if self.config.stream:
             return await stream_completion(

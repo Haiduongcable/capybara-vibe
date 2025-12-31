@@ -52,8 +52,10 @@ def create_sub_agent(
     child_tools = ToolRegistry()
     register_builtin_tools(child_tools)
 
-    # Create child with isolated console
-    child_console = Console()
+    # Create child with quiet console (suppresses Live displays to prevent UI clutter)
+    # Child's tool execution should not spam parent's terminal with status panels
+    from io import StringIO
+    child_console = Console(file=StringIO(), quiet=True, force_terminal=False)
 
     # Create agent (inherits parent's provider for API keys)
     return Agent(

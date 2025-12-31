@@ -4,6 +4,7 @@ from pathlib import Path
 
 import aiofiles
 
+from capybara.tools.builtin.diff_formatter import generate_diff
 from capybara.tools.registry import ToolRegistry
 
 
@@ -39,7 +40,7 @@ Usage:
     async def read_file(path: str, offset: int = 1, limit: int = 500) -> str:
         """Read file with line numbers."""
         try:
-            async with aiofiles.open(path, "r") as f:
+            async with aiofiles.open(path) as f:
                 lines = await f.readlines()
 
             start = max(0, offset - 1)
@@ -89,7 +90,8 @@ Usage:
 
 Usage:
 - old_string must be unique in the file (unless replace_all=true)
-- Use replace_all=true to replace all occurrences""",
+- Use replace_all=true to replace all occurrences
+- Returns diff-style output showing changes""",
         parameters={
             "type": "object",
             "properties": {
@@ -108,26 +110,39 @@ Usage:
     async def edit_file(
         path: str, old_string: str, new_string: str, replace_all: bool = False
     ) -> str:
-        """Edit file with string replacement."""
+        """Edit file with string replacement and diff output."""
         try:
-            async with aiofiles.open(path, "r") as f:
-                content = await f.read()
+            # Validation
+            if old_string == new_string:
+                return "Error: old_string and new_string must be different"
 
-            count = content.count(old_string)
+            async with aiofiles.open(path) as f:
+                original_content = await f.read()
+
+            count = original_content.count(old_string)
             if count == 0:
                 return f"Error: old_string not found in {path}"
             if count > 1 and not replace_all:
                 return f"Error: old_string found {count} times. Use replace_all=true or make it unique."
 
-            if replace_all:
-                new_content = content.replace(old_string, new_string)
-            else:
-                new_content = content.replace(old_string, new_string, 1)
+            # Perform replacement
+            new_content = original_content.replace(old_string, new_string)
 
+            # Write back to file
             async with aiofiles.open(path, "w") as f:
                 await f.write(new_content)
 
-            return f"Successfully edited {path} ({count} replacement{'s' if count > 1 else ''})"
+            # Generate diff output
+            diff_output = generate_diff(original_content, new_content, path)
+
+            # Generate success message
+            if replace_all and count > 1:
+                message = f"The file {path} has been updated. All {count} occurrences were successfully replaced."
+            else:
+                message = f"The file {path} has been updated."
+
+            return f"{message}\n\n{diff_output}"
+
         except FileNotFoundError:
             return f"Error: File not found: {path}"
         except Exception as e:

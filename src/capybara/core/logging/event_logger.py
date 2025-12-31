@@ -1,14 +1,10 @@
 """Event logging for agent behaviors and delegation tracking."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 
-def log_agent_behavior(
-    logger: logging.LoggerAdapter,
-    event_type: str,
-    details: Dict[str, Any]
-):
+def log_agent_behavior(logger: logging.LoggerAdapter, event_type: str, details: dict[str, Any]):
     """Log agent behavior events with structured format.
 
     Args:
@@ -22,11 +18,7 @@ def log_agent_behavior(
 
 
 def log_delegation(
-    logger: logging.LoggerAdapter,
-    action: str,
-    parent_session: str,
-    child_session: str,
-    **kwargs
+    logger: logging.LoggerAdapter, action: str, parent_session: str, child_session: str, **kwargs
 ):
     """Log delegation events between parent and child agents.
 
@@ -37,21 +29,12 @@ def log_delegation(
         child_session: Child session ID
         **kwargs: Additional context
     """
-    details = {
-        'action': action,
-        'parent': parent_session[:8],
-        'child': child_session[:8],
-        **kwargs
-    }
+    details = {"action": action, "parent": parent_session[:8], "child": child_session[:8], **kwargs}
     log_agent_behavior(logger, "delegation", details)
 
 
 def log_tool_execution(
-    logger: logging.LoggerAdapter,
-    tool_name: str,
-    status: str,
-    duration: float,
-    **kwargs
+    logger: logging.LoggerAdapter, tool_name: str, status: str, duration: float, **kwargs
 ):
     """Log tool execution events.
 
@@ -62,20 +45,12 @@ def log_tool_execution(
         duration: Execution duration in seconds
         **kwargs: Additional context (e.g., args, result)
     """
-    details = {
-        'tool': tool_name,
-        'status': status,
-        'duration': f"{duration:.2f}s",
-        **kwargs
-    }
+    details = {"tool": tool_name, "status": status, "duration": f"{duration:.2f}s", **kwargs}
     log_agent_behavior(logger, "tool_execution", details)
 
 
 def log_state_change(
-    logger: logging.LoggerAdapter,
-    from_state: str,
-    to_state: str,
-    reason: Optional[str] = None
+    logger: logging.LoggerAdapter, from_state: str, to_state: str, reason: str | None = None
 ):
     """Log agent state changes.
 
@@ -86,10 +61,10 @@ def log_state_change(
         reason: Optional reason for state change
     """
     details = {
-        'from': from_state,
-        'to': to_state,
+        "from": from_state,
+        "to": to_state,
     }
     if reason:
-        details['reason'] = reason
+        details["reason"] = reason
 
     log_agent_behavior(logger, "state_change", details)

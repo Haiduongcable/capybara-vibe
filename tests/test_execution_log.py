@@ -1,6 +1,7 @@
 """Tests for execution logging system."""
 
 import pytest
+
 from capybara.core.execution.execution_log import ExecutionLog, ToolExecution
 
 
@@ -20,18 +21,36 @@ def test_execution_log_file_tracking():
 def test_tool_usage_summary():
     """Test tool execution counting."""
     log = ExecutionLog()
-    log.tool_executions.append(ToolExecution(
-        tool_name="read_file", args={}, result_summary="ok",
-        success=True, duration=0.1, timestamp="2025-01-01"
-    ))
-    log.tool_executions.append(ToolExecution(
-        tool_name="read_file", args={}, result_summary="ok",
-        success=True, duration=0.1, timestamp="2025-01-01"
-    ))
-    log.tool_executions.append(ToolExecution(
-        tool_name="bash", args={}, result_summary="ok",
-        success=True, duration=0.5, timestamp="2025-01-01"
-    ))
+    log.tool_executions.append(
+        ToolExecution(
+            tool_name="read_file",
+            args={},
+            result_summary="ok",
+            success=True,
+            duration=0.1,
+            timestamp="2025-01-01",
+        )
+    )
+    log.tool_executions.append(
+        ToolExecution(
+            tool_name="read_file",
+            args={},
+            result_summary="ok",
+            success=True,
+            duration=0.1,
+            timestamp="2025-01-01",
+        )
+    )
+    log.tool_executions.append(
+        ToolExecution(
+            tool_name="bash",
+            args={},
+            result_summary="ok",
+            success=True,
+            duration=0.5,
+            timestamp="2025-01-01",
+        )
+    )
 
     summary = log.tool_usage_summary
     assert summary["read_file"] == 2

@@ -72,7 +72,7 @@ class MCPBridge:
             Number of tools registered
         """
         count = 0
-        for name, client in self._clients.items():
+        for _, client in self._clients.items():
             for tool_schema in client.tools:
                 tool_name = tool_schema["function"]["name"]
 
@@ -80,6 +80,7 @@ class MCPBridge:
                 def make_wrapper(captured_name: str):
                     async def call_mcp_tool(**kwargs: Any) -> str:
                         return await self.call_tool(captured_name, kwargs)
+
                     return call_mcp_tool
 
                 registry.register(

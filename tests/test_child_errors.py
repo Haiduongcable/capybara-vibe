@@ -1,6 +1,5 @@
 """Tests for child agent error handling."""
 
-import pytest
 from capybara.core.delegation.child_errors import ChildFailure, FailureCategory
 
 
@@ -17,7 +16,7 @@ def test_timeout_failure_formatting():
         suggested_retry=True,
         suggested_actions=["Increase timeout to 600s", "Break task into smaller subtasks"],
         tool_usage={"write_file": 2, "edit_file": 1},
-        last_successful_tool="edit_file"
+        last_successful_tool="edit_file",
     )
 
     context = failure.to_context_string()
@@ -44,7 +43,7 @@ def test_non_retryable_failure():
         suggested_retry=False,
         suggested_actions=["Clarify task requirements"],
         tool_usage={},
-        last_successful_tool=None
+        last_successful_tool=None,
     )
 
     context = failure.to_context_string()
@@ -68,7 +67,7 @@ def test_tool_error_failure():
         suggested_retry=True,
         suggested_actions=["Check file permissions", "Run with sudo"],
         tool_usage={"read_file": 1},
-        last_successful_tool=None
+        last_successful_tool=None,
     )
 
     context = failure.to_context_string()
@@ -92,7 +91,7 @@ def test_partial_success_with_files():
         suggested_retry=True,
         suggested_actions=["Provide database credentials", "Use mock database"],
         tool_usage={"write_file": 2, "edit_file": 1},
-        last_successful_tool="write_file"
+        last_successful_tool="write_file",
     )
 
     context = failure.to_context_string()
@@ -116,7 +115,7 @@ def test_empty_completed_steps():
         suggested_retry=False,
         suggested_actions=["Simplify task"],
         tool_usage={},
-        last_successful_tool=None
+        last_successful_tool=None,
     )
 
     context = failure.to_context_string()

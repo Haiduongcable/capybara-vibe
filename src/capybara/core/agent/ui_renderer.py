@@ -81,9 +81,7 @@ class AgentUIRenderer:
         else:
             return Group(*panels)
 
-    def _render_activity_panel(
-        self, tool_statuses: dict[str, dict[str, str]]
-    ) -> Panel | None:
+    def _render_activity_panel(self, tool_statuses: dict[str, dict[str, str]]) -> Panel | None:
         """Render activity panel showing tool execution status.
 
         Args:
@@ -94,7 +92,7 @@ class AgentUIRenderer:
         """
         activity_items: list[Text | Group] = []
 
-        for tool_id, info in tool_statuses.items():
+        for _, info in tool_statuses.items():
             name = info["name"]
             status = info["status"]
 

@@ -4,6 +4,7 @@ import asyncio
 
 # IMPORTANT: Import litellm config FIRST to suppress verbose output
 from capybara.core.config.litellm_config import suppress_litellm_output
+
 suppress_litellm_output()
 
 import click
@@ -31,15 +32,15 @@ def cli() -> None:
 @click.option("--model", "-m", default=None, help="Model to use (default from config)")
 @click.option("--no-stream", is_flag=True, help="Disable streaming output")
 @click.option(
-    "--mode", 
-    type=click.Choice(["standard", "safe", "plan", "auto"]), 
+    "--mode",
+    type=click.Choice(["standard", "safe", "plan", "auto"]),
     default="standard",
-    help="Operation mode (standard, safe, plan, auto)"
+    help="Operation mode (standard, safe, plan, auto)",
 )
 @click.argument("message", required=False)
 def chat(message: str | None, model: str | None, no_stream: bool, mode: str) -> None:
     """Start interactive chat session.
-    
+
     Optionally provide a MESSAGE to start the conversation immediately.
     """
     asyncio.run(_chat_async(model, not no_stream, mode, message))
@@ -50,10 +51,10 @@ def chat(message: str | None, model: str | None, no_stream: bool, mode: str) -> 
 @click.option("--model", "-m", default=None, help="Model to use")
 @click.option("--no-stream", is_flag=True, help="Disable streaming")
 @click.option(
-    "--mode", 
-    type=click.Choice(["standard", "safe", "plan", "auto"]), 
+    "--mode",
+    type=click.Choice(["standard", "safe", "plan", "auto"]),
     default="standard",
-    help="Operation mode (standard, safe, plan, auto)"
+    help="Operation mode (standard, safe, plan, auto)",
 )
 def run(prompt: str, model: str | None, no_stream: bool, mode: str) -> None:
     """Run a single prompt and exit."""
@@ -90,13 +91,15 @@ def init(use_cli: bool, no_browser: bool) -> None:
 def config() -> None:
     """Show current configuration."""
     cfg = load_config()
-    console.print(Panel.fit(
-        f"[bold]Model:[/bold] {cfg.default_model}\n"
-        f"[bold]Providers:[/bold] {len(cfg.providers)}\n"
-        f"[bold]Memory max tokens:[/bold] {cfg.memory.max_tokens:,}\n"
-        f"[bold]MCP enabled:[/bold] {cfg.mcp.enabled}",
-        title="Current Configuration",
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold]Model:[/bold] {cfg.default_model}\n"
+            f"[bold]Providers:[/bold] {len(cfg.providers)}\n"
+            f"[bold]Memory max tokens:[/bold] {cfg.memory.max_tokens:,}\n"
+            f"[bold]MCP enabled:[/bold] {cfg.mcp.enabled}",
+            title="Current Configuration",
+        )
+    )
 
 
 @cli.command()
@@ -144,7 +147,7 @@ def model(name: str | None) -> None:
         # Prompt for selection
         try:
             from prompt_toolkit import prompt as pt_prompt
-            from prompt_toolkit.validation import Validator, ValidationError
+            from prompt_toolkit.validation import ValidationError, Validator
 
             class NumberValidator(Validator):
                 def validate(self, document):
@@ -157,10 +160,7 @@ def model(name: str | None) -> None:
                         )
 
             console.print()
-            selection = pt_prompt(
-                "Select model (enter number): ",
-                validator=NumberValidator()
-            )
+            selection = pt_prompt("Select model (enter number): ", validator=NumberValidator())
 
             if selection:
                 selected_idx = int(selection) - 1
@@ -190,22 +190,27 @@ def resume(session_id: str, model: str | None) -> None:
     asyncio.run(_resume_async(session_id, model))
 
 
-async def _chat_async(model: str | None, stream: bool, mode: str = "standard", initial_message: str | None = None) -> None:
+async def _chat_async(
+    model: str | None, stream: bool, mode: str = "standard", initial_message: str | None = None
+) -> None:
     """Async chat implementation."""
     from capybara.cli.interactive import interactive_chat
 
     cfg = load_config()
     model = model or cfg.default_model
 
-    await interactive_chat(model=model, stream=stream, config=cfg, mode=mode, initial_message=initial_message)
+    await interactive_chat(
+        model=model, stream=stream, config=cfg, mode=mode, initial_message=initial_message
+    )
 
 
 async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "standard") -> None:
     """Async single-run implementation."""
     import uuid
+
     from capybara.core.agent import Agent, AgentConfig
-    from capybara.core.utils.prompts import build_system_prompt
     from capybara.core.utils.context import build_project_context
+    from capybara.core.utils.prompts import build_system_prompt
     from capybara.memory.window import ConversationMemory, MemoryConfig
     from capybara.tools.builtin import registry as default_tools
     from capybara.tools.mcp.bridge import MCPBridge
@@ -219,7 +224,7 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
     tools.merge(default_tools)
 
     # Apply Mode Logic (Duplicate of interactive.py logic - should refactor, but kept inline for now)
-    from capybara.core.config import ToolSecurityConfig, ToolPermission
+    from capybara.core.config import ToolPermission, ToolSecurityConfig
 
     if mode == "plan":
         # Remove dangerous tools from registry to hide them
@@ -228,7 +233,7 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
     elif mode == "safe":
         # Force ASK permission
         for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
-             cfg.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
+            cfg.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
 
     # Setup MCP integration if enabled
     mcp_bridge = None
@@ -274,8 +279,9 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
 
 async def _list_sessions() -> None:
     """List recent conversation sessions."""
-    from capybara.memory.storage import ConversationStorage
     from rich.table import Table
+
+    from capybara.memory.storage import ConversationStorage
 
     storage = ConversationStorage()
     await storage.initialize()
@@ -301,7 +307,7 @@ async def _list_sessions() -> None:
         )
 
     console.print(table)
-    console.print(f"\n[dim]Use 'capybara resume <session_id>' to continue a session[/dim]")
+    console.print("\n[dim]Use 'capybara resume <session_id>' to continue a session[/dim]")
 
 
 async def _resume_async(session_id: str, model: str | None) -> None:

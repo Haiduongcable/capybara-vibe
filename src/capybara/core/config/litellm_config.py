@@ -1,8 +1,6 @@
 """LiteLLM configuration and output suppression."""
 
 import os
-import sys
-from io import StringIO
 
 
 def suppress_litellm_output():
@@ -36,6 +34,7 @@ def suppress_litellm_output():
 
     # Suppress standard library logging for LiteLLM
     import logging
+
     for logger_name in [
         "LiteLLM",
         "LiteLLM Router",

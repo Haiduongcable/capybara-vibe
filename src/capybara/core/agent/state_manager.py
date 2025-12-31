@@ -4,7 +4,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from capybara.core.agent.status import AgentState, AgentStatus
-from capybara.core.delegation.event_bus import Event, EventType, EventBus
+from capybara.core.delegation.event_bus import Event, EventBus, EventType
 from capybara.core.logging import SessionLoggerAdapter, log_state_change
 
 if TYPE_CHECKING:

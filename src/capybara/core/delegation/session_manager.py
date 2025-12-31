@@ -1,6 +1,5 @@
 """Session hierarchy and lifecycle management."""
 
-from typing import Optional
 from ulid import ULID
 
 from capybara.memory.storage import ConversationStorage
@@ -17,7 +16,7 @@ class SessionManager:
         parent_id: str,
         model: str,
         prompt: str,
-        title: Optional[str] = None,
+        title: str | None = None,
     ) -> str:
         """Create child session and return ID."""
         child_id = str(ULID())
@@ -47,4 +46,4 @@ class SessionManager:
     async def get_agent_mode(self, session_id: str) -> str:
         """Get agent mode (parent/child) for session."""
         hierarchy = await self.get_hierarchy(session_id)
-        return hierarchy.get("agent_mode", "parent")
+        return str(hierarchy.get("agent_mode", "parent"))

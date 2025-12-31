@@ -1,7 +1,5 @@
 """Communication flow renderer for parent-child agent visualization."""
 
-from typing import Optional
-
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -16,7 +14,7 @@ class CommunicationFlowRenderer:
 
     def __init__(self, console: Console):
         self.console = console
-        self.parent_status: Optional[AgentStatus] = None
+        self.parent_status: AgentStatus | None = None
         self.child_statuses: dict[str, AgentStatus] = {}
 
     def render(self) -> Panel:
@@ -24,9 +22,7 @@ class CommunicationFlowRenderer:
 
         if not self.parent_status:
             return Panel(
-                Text("No active agents", style="dim"),
-                title="Agent Flow",
-                border_style="dim"
+                Text("No active agents", style="dim"), title="Agent Flow", border_style="dim"
             )
 
         # Build tree
@@ -42,7 +38,7 @@ class CommunicationFlowRenderer:
             tree,
             title="[bold cyan]Agent Communication Flow[/bold cyan]",
             border_style="cyan",
-            box=box.ROUNDED
+            box=box.ROUNDED,
         )
 
     def _format_agent_node(self, status: AgentStatus) -> Text:
@@ -75,8 +71,7 @@ class CommunicationFlowRenderer:
         action_text = f": {status.current_action}" if status.current_action else ""
 
         return Text.from_markup(
-            f"{icon} {mode_badge} {status.state.value}{action_text}",
-            style=style
+            f"{icon} {mode_badge} {status.state.value}{action_text}", style=style
         )
 
     def update_parent(self, status: AgentStatus):

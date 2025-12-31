@@ -10,40 +10,40 @@ Features:
 
 import logging
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
-from .session_logger import SessionLoggerAdapter, SessionLogManager, get_session_log_manager
-from .error_logger import ErrorLogManager, get_error_log_manager, log_error
-from .event_logger import log_agent_behavior, log_delegation, log_tool_execution, log_state_change
 from .api_logger import APILogger
+from .error_logger import ErrorLogManager, get_error_log_manager, log_error
+from .event_logger import log_agent_behavior, log_delegation, log_state_change, log_tool_execution
+from .session_logger import SessionLoggerAdapter, SessionLogManager, get_session_log_manager
 
 __all__ = [
     # Session logging
-    'SessionLoggerAdapter',
-    'SessionLogManager',
-    'get_session_log_manager',
+    "SessionLoggerAdapter",
+    "SessionLogManager",
+    "get_session_log_manager",
     # Error logging
-    'ErrorLogManager',
-    'get_error_log_manager',
-    'log_error',
+    "ErrorLogManager",
+    "get_error_log_manager",
+    "log_error",
     # Event logging
-    'log_agent_behavior',
-    'log_delegation',
-    'log_tool_execution',
-    'log_state_change',
+    "log_agent_behavior",
+    "log_delegation",
+    "log_tool_execution",
+    "log_state_change",
     # API logging
-    'APILogger',
+    "APILogger",
     # Base setup
-    'setup_logging',
-    'get_logger',
+    "setup_logging",
+    "get_logger",
 ]
 
 
 def setup_logging(
     log_level: str = "INFO",
-    log_dir: Optional[Path] = None,
+    log_dir: Path | None = None,
     console_output: bool = False,
 ) -> logging.Logger:
     """Setup logging with file and optional console output.
@@ -78,8 +78,7 @@ def setup_logging(
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
     file_formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)

@@ -1,15 +1,14 @@
 """Error-only logging to separate error log files."""
 
 import logging
-from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from pathlib import Path
 
 
 class ErrorLogManager:
     """Manages error-only logging with separate error log files."""
 
-    def __init__(self, base_log_dir: Optional[Path] = None):
+    def __init__(self, base_log_dir: Path | None = None):
         """Initialize error log manager.
 
         Args:
@@ -48,7 +47,7 @@ class ErrorLogManager:
             "%(pathname)s:%(lineno)d\n"
             "%(message)s\n"
             "---",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
         error_handler.setFormatter(error_formatter)
         error_logger.addHandler(error_handler)
@@ -75,8 +74,8 @@ def get_error_log_manager() -> ErrorLogManager:
 def log_error(
     error: Exception,
     context: str,
-    session_id: Optional[str] = None,
-    agent_mode: Optional[str] = None
+    session_id: str | None = None,
+    agent_mode: str | None = None,
 ):
     """Log error to error-only log file.
 
@@ -92,6 +91,5 @@ def log_error(
     agent_info = f" [agent={agent_mode}]" if agent_mode else ""
 
     error_logger.error(
-        f"{context}{session_info}{agent_info}: {type(error).__name__}: {error}",
-        exc_info=True
+        f"{context}{session_info}{agent_info}: {type(error).__name__}: {error}", exc_info=True
     )

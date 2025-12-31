@@ -1,7 +1,6 @@
 """Tests for todo state management."""
 
-import pytest
-from capybara.tools.builtin.todo import TodoItem, TodoStatus, TodoPriority
+from capybara.tools.builtin.todo import TodoItem, TodoStatus
 from capybara.tools.builtin.todo_state import TodoStateManager, todo_state
 
 
@@ -53,10 +52,12 @@ def test_observer_notification():
     manager.update_todos([TodoItem(id="1", content="Task 1")])
     assert notifications == [1]
 
-    manager.update_todos([
-        TodoItem(id="1", content="Task 1"),
-        TodoItem(id="2", content="Task 2"),
-    ])
+    manager.update_todos(
+        [
+            TodoItem(id="1", content="Task 1"),
+            TodoItem(id="2", content="Task 2"),
+        ]
+    )
     assert notifications == [1, 2]
 
 

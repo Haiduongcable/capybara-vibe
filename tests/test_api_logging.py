@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-import pytest
 
 from capybara.core.logging.api_logger import APILogger
 

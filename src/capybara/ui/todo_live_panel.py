@@ -1,7 +1,6 @@
 """Live-updating todo panel that renders independently from agent output."""
 
 import asyncio
-from typing import Optional
 
 from rich import box
 from rich.console import Console, Group
@@ -29,8 +28,8 @@ class LiveTodoPanel:
         self.console = console
         self.visible = visible
         self.todos: list[TodoItem] = []
-        self._live: Optional[Live] = None
-        self._task: Optional[asyncio.Task] = None
+        self._live: Live | None = None
+        self._task: asyncio.Task | None = None
 
     def update_todos(self, new_todos: list[TodoItem]) -> None:
         """Update todo list and refresh display.
@@ -134,7 +133,7 @@ class LiveTodoPanel:
             console=self.console,
             refresh_per_second=4,
             transient=False,
-            auto_refresh=True
+            auto_refresh=True,
         )
 
         self._task = asyncio.create_task(self._run_live())
@@ -142,7 +141,8 @@ class LiveTodoPanel:
     async def _run_live(self) -> None:
         """Run live display loop."""
         try:
-            self._live.start()
+            if self._live:
+                self._live.start()
             # Keep alive until stopped
             while True:
                 await asyncio.sleep(0.1)

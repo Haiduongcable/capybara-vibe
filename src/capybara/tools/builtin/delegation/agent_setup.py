@@ -10,10 +10,7 @@ from capybara.tools.registry import ToolRegistry
 
 
 def create_sub_agent(
-    parent_agent: Agent,
-    child_session_id: str,
-    parent_session_id: str,
-    timeout: float
+    parent_agent: Agent, child_session_id: str, parent_session_id: str, timeout: float
 ) -> Agent:
     """Create and configure sub-agent for autonomous work.
 
@@ -44,17 +41,19 @@ def create_sub_agent(
         max_turns=70,
         timeout=timeout,
         stream=True,
-        mode=AgentMode.CHILD  # Restricted mode (no delegation/todo)
+        mode=AgentMode.CHILD,  # Restricted mode (no delegation/todo)
     )
 
     # Setup child tools (filtered by CHILD mode)
     from capybara.tools.builtin import register_builtin_tools
+
     child_tools = ToolRegistry()
     register_builtin_tools(child_tools)
 
     # Create child with quiet console (suppresses Live displays to prevent UI clutter)
     # Child's tool execution should not spam parent's terminal with status panels
     from io import StringIO
+
     child_console = Console(file=StringIO(), quiet=True, force_terminal=False)
 
     # Create agent (inherits parent's provider for API keys)
@@ -66,5 +65,5 @@ def create_sub_agent(
         provider=parent_agent.provider,  # CRITICAL: Inherit API keys
         tools_config=parent_agent.tools_config,
         session_id=child_session_id,
-        parent_session_id=parent_session_id
+        parent_session_id=parent_session_id,
     )

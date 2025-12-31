@@ -1,6 +1,5 @@
 """Tests for the enhanced logging system."""
 
-import logging
 import tempfile
 from pathlib import Path
 
@@ -8,7 +7,6 @@ import pytest
 
 from capybara.core.logging import (
     SessionLogManager,
-    get_session_log_manager,
     log_agent_behavior,
     log_delegation,
     log_error,
@@ -36,9 +34,7 @@ def test_session_logger_creation(log_manager, temp_log_dir):
 
     # Create session logger
     logger = log_manager.create_session_logger(
-        session_id=session_id,
-        agent_mode="parent",
-        log_level="INFO"
+        session_id=session_id, agent_mode="parent", log_level="INFO"
     )
 
     # Verify logger was created
@@ -47,7 +43,7 @@ def test_session_logger_creation(log_manager, temp_log_dir):
     assert logger.extra["agent_mode"] == "parent"
 
     # Verify log file was created
-    session_log_dir = temp_log_dir / "sessions" / f"{Path.cwd().name}"
+    _ = temp_log_dir / "sessions" / f"{Path.cwd().name}"
     # Actually look for any YYYYMMDD directory
     session_dirs = list((temp_log_dir / "sessions").glob("*"))
     assert len(session_dirs) > 0
@@ -60,9 +56,7 @@ def test_session_logger_formatting(log_manager):
     session_id = "test-session-456"
 
     logger = log_manager.create_session_logger(
-        session_id=session_id,
-        agent_mode="child",
-        log_level="DEBUG"
+        session_id=session_id, agent_mode="child", log_level="DEBUG"
     )
 
     # Log a message
@@ -81,9 +75,7 @@ def test_log_agent_behavior(log_manager):
 
     # Log agent behavior
     log_agent_behavior(
-        logger,
-        event_type="test_event",
-        details={"key1": "value1", "key2": "value2"}
+        logger, event_type="test_event", details={"key1": "value1", "key2": "value2"}
     )
 
     # Verify logger was called (implicitly through no errors)
@@ -103,7 +95,7 @@ def test_log_delegation(log_manager):
         action="start",
         parent_session=parent_session,
         child_session=child_session,
-        prompt="Test task"
+        prompt="Test task",
     )
 
     log_delegation(
@@ -111,7 +103,7 @@ def test_log_delegation(log_manager):
         action="complete",
         parent_session=parent_session,
         child_session=child_session,
-        duration="5.23s"
+        duration="5.23s",
     )
 
     # Verify no errors occurred
@@ -124,19 +116,10 @@ def test_log_tool_execution(log_manager):
     logger = log_manager.create_session_logger(session_id, "parent")
 
     # Log tool execution
-    log_tool_execution(
-        logger,
-        tool_name="bash",
-        status="success",
-        duration=1.23
-    )
+    log_tool_execution(logger, tool_name="bash", status="success", duration=1.23)
 
     log_tool_execution(
-        logger,
-        tool_name="read_file",
-        status="error",
-        duration=0.05,
-        error="File not found"
+        logger, tool_name="read_file", status="error", duration=0.05, error="File not found"
     )
 
     # Verify no errors occurred
@@ -149,18 +132,9 @@ def test_log_state_change(log_manager):
     logger = log_manager.create_session_logger(session_id, "parent")
 
     # Log state changes
-    log_state_change(
-        logger,
-        from_state="idle",
-        to_state="thinking",
-        reason="Processing user input"
-    )
+    log_state_change(logger, from_state="idle", to_state="thinking", reason="Processing user input")
 
-    log_state_change(
-        logger,
-        from_state="thinking",
-        to_state="executing_tools"
-    )
+    log_state_change(logger, from_state="thinking", to_state="executing_tools")
 
     # Verify no errors occurred
     assert True
@@ -176,14 +150,12 @@ def test_error_logging(temp_log_dir):
         raise ValueError("Test error message")
     except ValueError as e:
         log_error(
-            error=e,
-            context="test_context",
-            session_id="test-session-error",
-            agent_mode="parent"
+            error=e, context="test_context", session_id="test-session-error", agent_mode="parent"
         )
 
     # Verify error was logged (check default location)
     from pathlib import Path
+
     default_error_dir = Path.home() / ".capybara" / "logs" / "errors"
     assert default_error_dir.exists()
 

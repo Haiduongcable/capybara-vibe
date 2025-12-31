@@ -1,10 +1,10 @@
 """Async event bus for parent-child progress communication."""
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import AsyncIterator, Optional
 
 from capybara.core.logging import get_logger
 
@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 
 class EventType(str, Enum):
     """Event types for progress tracking."""
+
     TOOL_START = "tool_start"
     TOOL_DONE = "tool_done"
     TOOL_ERROR = "tool_error"
@@ -29,15 +30,16 @@ class EventType(str, Enum):
 @dataclass
 class Event:
     """Progress event from child agent."""
+
     session_id: str
     event_type: EventType
-    tool_name: Optional[str] = None
+    tool_name: str | None = None
     metadata: dict = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     # For status events
-    agent_state: Optional[str] = None
-    message: Optional[str] = None
+    agent_state: str | None = None
+    message: str | None = None
 
 
 class EventBus:
@@ -61,7 +63,7 @@ class EventBus:
 
         # Trim history
         if len(self._history[session_id]) > self._max_history:
-            self._history[session_id] = self._history[session_id][-self._max_history:]
+            self._history[session_id] = self._history[session_id][-self._max_history :]
 
         # Send to subscribers
         if session_id in self._subscribers:
@@ -111,7 +113,7 @@ class EventBus:
 
 
 # Global event bus instance
-_event_bus: Optional[EventBus] = None
+_event_bus: EventBus | None = None
 
 
 def get_event_bus() -> EventBus:

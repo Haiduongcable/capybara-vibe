@@ -1,20 +1,19 @@
 """Bash execution tool with timeout and safety."""
 
 import asyncio
-import shlex
-from typing import Optional
-
 
 from capybara.tools.registry import ToolRegistry
 
 # Commands that are potentially destructive
-DANGEROUS_COMMANDS = frozenset([
-    "rm -rf /",
-    "rm -rf /*",
-    "mkfs",
-    "dd if=/dev/zero",
-    ":(){:|:&};:",  # Fork bomb
-])
+DANGEROUS_COMMANDS = frozenset(
+    [
+        "rm -rf /",
+        "rm -rf /*",
+        "mkfs",
+        "dd if=/dev/zero",
+        ":(){:|:&};:",  # Fork bomb
+    ]
+)
 
 
 def register_bash_tools(registry: ToolRegistry) -> None:
@@ -49,14 +48,12 @@ Safety:
             "required": ["command"],
         },
     )
-    async def bash(
-        command: str, timeout: int = 60, cwd: Optional[str] = None
-    ) -> str:
+    async def bash(command: str, timeout: int = 60, cwd: str | None = None) -> str:
         """Execute bash command with timeout."""
         # Safety check
         for dangerous in DANGEROUS_COMMANDS:
             if dangerous in command:
-                return f"Error: Blocked potentially dangerous command"
+                return "Error: Blocked potentially dangerous command"
 
         # Clamp timeout
         timeout = min(max(timeout, 1), 300)
@@ -70,9 +67,7 @@ Safety:
             )
 
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=timeout
-                )
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()

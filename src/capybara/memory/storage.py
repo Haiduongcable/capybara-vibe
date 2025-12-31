@@ -3,7 +3,7 @@
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import aiosqlite
 
@@ -11,7 +11,7 @@ import aiosqlite
 class ConversationStorage:
     """SQLite-based conversation persistence."""
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         self.db_path = db_path or (Path.home() / ".capybara" / "conversations.db")
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialized = False
@@ -79,8 +79,8 @@ class ConversationStorage:
         self,
         session_id: str,
         model: str,
-        title: Optional[str] = None,
-        parent_id: Optional[str] = None,
+        title: str | None = None,
+        parent_id: str | None = None,
         agent_mode: str = "parent",
     ) -> None:
         """Create a new conversation session."""
@@ -221,8 +221,8 @@ class ConversationStorage:
         self,
         session_id: str,
         event_type: str,
-        tool_name: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        tool_name: str | None = None,
+        metadata: dict | None = None,
     ) -> None:
         """Log event for progress tracking."""
         await self._init_db()

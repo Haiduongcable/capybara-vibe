@@ -12,14 +12,16 @@ class TestTransformProviderForYAML:
 
     def test_custom_openai_compatible_adds_prefix(self):
         """Custom provider with openai_compatible=True adds openai/ prefix."""
-        result = transform_provider_for_yaml({
-            "type": "custom",
-            "name": "My Custom",
-            "model": "my-model",
-            "api_key": "sk-test",
-            "api_base": "https://api.example.com",
-            "openai_compatible": True,
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "custom",
+                "name": "My Custom",
+                "model": "my-model",
+                "api_key": "sk-test",
+                "api_base": "https://api.example.com",
+                "openai_compatible": True,
+            }
+        )
         assert result.model == "openai/my-model"
         assert result.name == "My Custom"
         assert result.api_key == "sk-test"
@@ -27,80 +29,96 @@ class TestTransformProviderForYAML:
 
     def test_custom_not_compatible_no_prefix(self):
         """Custom provider with openai_compatible=False keeps model as-is."""
-        result = transform_provider_for_yaml({
-            "type": "custom",
-            "name": "test",
-            "model": "my-model",
-            "openai_compatible": False,
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "custom",
+                "name": "test",
+                "model": "my-model",
+                "openai_compatible": False,
+            }
+        )
         assert result.model == "my-model"
 
     def test_custom_already_has_prefix(self):
         """Custom provider with existing prefix doesn't double-prefix."""
-        result = transform_provider_for_yaml({
-            "type": "custom",
-            "name": "test",
-            "model": "openai/my-model",
-            "openai_compatible": True,
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "custom",
+                "name": "test",
+                "model": "openai/my-model",
+                "openai_compatible": True,
+            }
+        )
         assert result.model == "openai/my-model"
 
     def test_google_adds_gemini_prefix(self):
         """Google provider adds gemini/ prefix."""
-        result = transform_provider_for_yaml({
-            "type": "google",
-            "name": "Google AI",
-            "model": "2.0-flash",
-            "api_key": "AIza-test",
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "google",
+                "name": "Google AI",
+                "model": "2.0-flash",
+                "api_key": "AIza-test",
+            }
+        )
         assert result.model == "gemini/2.0-flash"
 
     def test_google_already_has_prefix(self):
         """Google provider with existing prefix doesn't double-prefix."""
-        result = transform_provider_for_yaml({
-            "type": "google",
-            "name": "test",
-            "model": "gemini/2.0-flash",
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "google",
+                "name": "test",
+                "model": "gemini/2.0-flash",
+            }
+        )
         assert result.model == "gemini/2.0-flash"
 
     def test_anthropic_adds_prefix(self):
         """Anthropic provider adds anthropic/ prefix."""
-        result = transform_provider_for_yaml({
-            "type": "anthropic",
-            "name": "Claude",
-            "model": "claude-3-5-sonnet",
-            "api_key": "sk-ant-test",
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "anthropic",
+                "name": "Claude",
+                "model": "claude-3-5-sonnet",
+                "api_key": "sk-ant-test",
+            }
+        )
         assert result.model == "anthropic/claude-3-5-sonnet"
 
     def test_openai_no_prefix(self):
         """OpenAI provider keeps model as-is (no prefix)."""
-        result = transform_provider_for_yaml({
-            "type": "openai",
-            "name": "OpenAI",
-            "model": "gpt-4o",
-            "api_key": "sk-test",
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "openai",
+                "name": "OpenAI",
+                "model": "gpt-4o",
+                "api_key": "sk-test",
+            }
+        )
         assert result.model == "gpt-4o"
 
     def test_litellm_no_prefix(self):
         """LiteLLM provider keeps model as-is."""
-        result = transform_provider_for_yaml({
-            "type": "litellm",
-            "name": "LiteLLM Proxy",
-            "model": "gpt-4",
-            "api_base": "http://localhost:4000",
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "litellm",
+                "name": "LiteLLM Proxy",
+                "model": "gpt-4",
+                "api_base": "http://localhost:4000",
+            }
+        )
         assert result.model == "gpt-4"
 
     def test_default_values(self):
         """Missing optional fields get defaults."""
-        result = transform_provider_for_yaml({
-            "type": "openai",
-            "name": "test",
-            "model": "gpt-4o",
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "openai",
+                "name": "test",
+                "model": "gpt-4o",
+            }
+        )
         assert result.max_tokens == 8000
         assert result.rpm == 100
         assert result.tpm == 100000
@@ -109,13 +127,15 @@ class TestTransformProviderForYAML:
 
     def test_empty_strings_become_none(self):
         """Empty strings for api_key/api_base become None."""
-        result = transform_provider_for_yaml({
-            "type": "openai",
-            "name": "test",
-            "model": "gpt-4o",
-            "api_key": "",
-            "api_base": "",
-        })
+        result = transform_provider_for_yaml(
+            {
+                "type": "openai",
+                "name": "test",
+                "model": "gpt-4o",
+                "api_key": "",
+                "api_base": "",
+            }
+        )
         assert result.api_key is None
         assert result.api_base is None
 
@@ -125,7 +145,9 @@ class TestTransformProviderForUI:
 
     def test_strips_openai_prefix(self):
         """Strips openai/ prefix and sets type=custom, openai_compatible=True."""
-        provider = ProviderConfig(name="test", model="openai/my-model", api_base="https://api.example.com")
+        provider = ProviderConfig(
+            name="test", model="openai/my-model", api_base="https://api.example.com"
+        )
         result = transform_provider_for_ui(provider)
         assert result["model"] == "my-model"
         assert result["type"] == "custom"
@@ -180,7 +202,9 @@ class TestTransformProviderForUI:
 
     def test_litellm_detected_from_api_base(self):
         """Detects LiteLLM from api_base containing 'litellm'."""
-        provider = ProviderConfig(name="test", model="my-custom-model", api_base="http://localhost:4000/litellm")
+        provider = ProviderConfig(
+            name="test", model="my-custom-model", api_base="http://localhost:4000/litellm"
+        )
         result = transform_provider_for_ui(provider)
         assert result["type"] == "litellm"
 

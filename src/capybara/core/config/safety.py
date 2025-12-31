@@ -1,13 +1,14 @@
 from pathlib import Path
 
 DANGEROUS_PATHS = [
-    Path("/"),             # Root
+    Path("/"),  # Root
     Path("/usr"),
     Path("/etc"),
     Path("/var"),
     Path("/bin"),
     Path("/sbin"),
 ]
+
 
 def is_dangerous_directory(path: Path) -> bool:
     """Check if directory is unsafe for project scanning."""
@@ -43,6 +44,7 @@ def is_dangerous_directory(path: Path) -> bool:
     except Exception:
         # On error (e.g. permission denied resolving), assume unsafe
         return True
+
 
 DANGEROUS_DIRECTORY_WARNING = """
 ⚠️ WARNING: You are working in a potentially sensitive or system directory.

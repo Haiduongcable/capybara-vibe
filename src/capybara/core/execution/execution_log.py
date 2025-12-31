@@ -2,12 +2,12 @@
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
 class ToolExecution:
     """Single tool call record."""
+
     tool_name: str
     args: dict
     result_summary: str  # First 200 chars
@@ -19,14 +19,16 @@ class ToolExecution:
 @dataclass
 class FileOperation:
     """File modification record."""
+
     path: str
     operation: str  # "read", "write", "edit"
-    lines_changed: Optional[int] = None
+    lines_changed: int | None = None
 
 
 @dataclass
 class ExecutionLog:
     """Comprehensive child agent execution log."""
+
     files_read: set[str] = field(default_factory=set)
     files_written: set[str] = field(default_factory=set)
     files_edited: set[str] = field(default_factory=set)

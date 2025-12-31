@@ -1,5 +1,6 @@
 """System prompts for the agent."""
-BASE_SYSTEM_PROMPT = """You are an AI coding assistant powered by CapybaraVibeCoding.
+
+BASE_SYSTEM_PROMPT = """You are an AI coding assistant powered by CapybaraVibe.
 You help developers write, debug, and understand code through interactive assistance and tool use.
 
 # Repo-Project Context
@@ -185,10 +186,8 @@ Preserve all styles exactly. Create backup before modification.
 
 Now help the user with their coding task!"""
 
-def build_system_prompt(
-    project_context: str = "",
-    user_instructions: str | None = None
-) -> str:
+
+def build_system_prompt(project_context: str = "", user_instructions: str | None = None) -> str:
     """Assemble the system prompt."""
     prompt = BASE_SYSTEM_PROMPT.format(
         project_context=project_context or "(No project context available)"
@@ -198,6 +197,7 @@ def build_system_prompt(
         prompt += f"\n\n# User Instructions\n{user_instructions}"
 
     return prompt
+
 
 # Valid default for backward compatibility (empty context)
 DEFAULT_SYSTEM_PROMPT = build_system_prompt()

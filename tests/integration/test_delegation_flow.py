@@ -1,15 +1,17 @@
 """Integration tests for end-to-end delegation flows."""
 
-import pytest
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from capybara.core.agent import Agent, AgentConfig
 from capybara.core.delegation.session_manager import SessionManager
-from capybara.memory.window import ConversationMemory
 from capybara.memory.storage import ConversationStorage
-from capybara.tools.registry import ToolRegistry
+from capybara.memory.window import ConversationMemory
 from capybara.tools.base import AgentMode
 from capybara.tools.builtin import register_builtin_tools
+from capybara.tools.registry import ToolRegistry
 
 
 @pytest.mark.asyncio
@@ -39,7 +41,7 @@ async def test_delegation_creates_child_and_completes(tmp_path: Path):
         parent_session_id=parent_id,
         parent_agent=None,  # Will be set after agent creation
         session_manager=session_manager,
-        storage=storage
+        storage=storage,
     )
 
     # Create agent after tools are registered
@@ -52,29 +54,28 @@ async def test_delegation_creates_child_and_completes(tmp_path: Path):
         parent_session_id=parent_id,
         parent_agent=parent_agent,
         session_manager=session_manager,
-        storage=storage
+        storage=storage,
     )
     parent_agent.tools = parent_tools.filter_by_mode(AgentMode.PARENT)
 
     # Mock Agent.run to simulate child execution
     async def mock_child_run(self, prompt):
         from capybara.core.delegation.event_bus import Event, EventType
+
         if self.session_id:
-            await self.event_bus.publish(Event(
-                session_id=self.session_id,
-                event_type=EventType.AGENT_DONE,
-                metadata={"status": "completed"}
-            ))
+            await self.event_bus.publish(
+                Event(
+                    session_id=self.session_id,
+                    event_type=EventType.AGENT_DONE,
+                    metadata={"status": "completed"},
+                )
+            )
         return f"Task completed: {prompt}"
 
-    original_run = Agent.run
-    Agent.run = mock_child_run
-
-    try:
-        # Execute task solving via solve_task tool
+    with patch.object(Agent, "run", side_effect=mock_child_run):
+        # Execute task solving via sub_agent tool
         result = await parent_agent.tools.execute(
-            "solve_task",
-            {"task": "Test integration task", "timeout": 10.0}
+            "sub_agent", {"task": "Test integration task", "timeout": 10.0}
         )
 
         # Verify result contains execution summary
@@ -99,9 +100,6 @@ async def test_delegation_creates_child_and_completes(tmp_path: Path):
         event_types = [e["event_type"] for e in events]
         assert "delegation_start" in event_types
         assert "delegation_complete" in event_types
-
-    finally:
-        Agent.run = original_run
 
 
 @pytest.mark.asyncio
@@ -140,17 +138,11 @@ async def test_session_hierarchy_persists(tmp_path: Path):
 
     # Create multiple children
     child1_id = await manager.create_child_session(
-        parent_id=parent_id,
-        model="gpt-4",
-        prompt="Task 1",
-        title="Child 1"
+        parent_id=parent_id, model="gpt-4", prompt="Task 1", title="Child 1"
     )
 
     child2_id = await manager.create_child_session(
-        parent_id=parent_id,
-        model="gpt-4",
-        prompt="Task 2",
-        title="Child 2"
+        parent_id=parent_id, model="gpt-4", prompt="Task 2", title="Child 2"
     )
 
     # Verify parent session

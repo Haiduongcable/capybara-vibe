@@ -1,7 +1,8 @@
 """Tests for SessionManager."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from capybara.core.delegation.session_manager import SessionManager
 from capybara.memory.storage import ConversationStorage

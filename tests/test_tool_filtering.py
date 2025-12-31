@@ -2,8 +2,8 @@
 
 import pytest
 
-from capybara.tools.registry import ToolRegistry
 from capybara.tools.base import AgentMode
+from capybara.tools.registry import ToolRegistry
 
 
 @pytest.mark.asyncio

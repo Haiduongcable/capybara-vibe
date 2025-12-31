@@ -13,9 +13,9 @@ from rich.panel import Panel
 
 from capybara.core.agent import Agent, AgentConfig
 from capybara.core.config import CapybaraConfig
+from capybara.core.logging import get_logger
 from capybara.core.utils.context import build_project_context
 from capybara.core.utils.interrupts import AgentInterruptException
-from capybara.core.logging import get_logger
 from capybara.core.utils.prompts import build_system_prompt
 from capybara.memory.storage import ConversationStorage
 from capybara.memory.window import ConversationMemory, MemoryConfig
@@ -30,9 +30,24 @@ logger = get_logger(__name__)
 
 # Random agent names for thinking message
 AGENT_NAMES = [
-    "Nova", "Atlas", "Luna", "Orion", "Phoenix", "Sage",
-    "Echo", "Zara", "Nexus", "Cipher", "Aurora", "Titan",
-    "Vega", "Iris", "Quantum", "Stella", "Neo", "Lyra"
+    "Nova",
+    "Atlas",
+    "Luna",
+    "Orion",
+    "Phoenix",
+    "Sage",
+    "Echo",
+    "Zara",
+    "Nexus",
+    "Cipher",
+    "Aurora",
+    "Titan",
+    "Vega",
+    "Iris",
+    "Quantum",
+    "Stella",
+    "Neo",
+    "Lyra",
 ]
 
 
@@ -67,19 +82,23 @@ async def interactive_chat(
 
         elif mode == "auto":
             # Force ALWAYS for everything (CAUTION)
-             for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
-                config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
+            for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
+                config.tools.security[tool_name] = ToolSecurityConfig(
+                    permission=ToolPermission.ALWAYS
+                )
 
         elif mode == "plan":
             # Disable dangerous tools
             for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
-                config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.NEVER)
+                config.tools.security[tool_name] = ToolSecurityConfig(
+                    permission=ToolPermission.NEVER
+                )
             # Ensure safe tools are enabled
             config.tools.security["todo"] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
 
     # Setup agent with provider router
-    from capybara.providers.router import ProviderRouter
     from capybara.core.delegation.session_manager import SessionManager
+    from capybara.providers.router import ProviderRouter
 
     # Generate session ID for logging
     session_id = str(uuid.uuid4())
@@ -107,7 +126,7 @@ async def interactive_chat(
         parent_session_id=None,  # Don't register solve_task yet
         parent_agent=None,
         session_manager=None,
-        storage=None
+        storage=None,
     )
 
     provider = ProviderRouter(
@@ -127,12 +146,13 @@ async def interactive_chat(
 
     # NOW register sub-agent tool with actual agent reference
     from capybara.tools.builtin.delegation import register_sub_agent_tool
+
     register_sub_agent_tool(
         tools,
         parent_session_id=session_id,
         parent_agent=agent,
         session_manager=session_manager,
-        storage=storage
+        storage=storage,
     )
 
     # Filter tools by mode AFTER all tools registered
@@ -153,7 +173,9 @@ async def interactive_chat(
             connected = await mcp_bridge.connect_all()
             if connected > 0:
                 mcp_count = mcp_bridge.register_with_registry(agent.tools)
-                console.print(f"[dim]Connected to {connected} MCP servers ({mcp_count} tools)[/dim]")
+                console.print(
+                    f"[dim]Connected to {connected} MCP servers ({mcp_count} tools)[/dim]"
+                )
         except Exception as e:
             console.print(f"[yellow]Warning: MCP setup failed: {e}[/yellow]")
 
@@ -176,6 +198,7 @@ async def interactive_chat(
             console.print()  # Add newline after panel
 
     from capybara.tools.builtin.todo_state import todo_state
+
     todo_state.subscribe(on_todos_changed)
 
     # Setup prompt_toolkit
@@ -191,12 +214,12 @@ async def interactive_chat(
     bindings = KeyBindings()
 
     @bindings.add("c-c")
-    def interrupt(event) -> None:  # type: ignore[no-untyped-def]
+    def interrupt(event) -> None:
         """Handle Ctrl+C gracefully."""
         raise KeyboardInterrupt()
 
     @bindings.add("c-t")
-    def toggle_todos(event) -> None:  # type: ignore[no-untyped-def]
+    def toggle_todos(event) -> None:
         """Toggle todo panel visibility (Ctrl+T)."""
         todo_panel.toggle_visibility()
         logger.info(f"Todo panel visibility toggled: {todo_panel.visible}")
@@ -317,7 +340,9 @@ async def interactive_chat_with_session(
             connected = await mcp_bridge.connect_all()
             if connected > 0:
                 mcp_count = mcp_bridge.register_with_registry(tools)
-                console.print(f"[dim]Connected to {connected} MCP servers ({mcp_count} tools)[/dim]")
+                console.print(
+                    f"[dim]Connected to {connected} MCP servers ({mcp_count} tools)[/dim]"
+                )
         except Exception as e:
             console.print(f"[yellow]Warning: MCP setup failed: {e}[/yellow]")
 
@@ -359,7 +384,7 @@ async def interactive_chat_with_session(
     bindings = KeyBindings()
 
     @bindings.add("c-c")
-    def interrupt(event) -> None:  # type: ignore[no-untyped-def]
+    def interrupt(event) -> None:
         """Handle Ctrl+C gracefully."""
         raise KeyboardInterrupt()
 

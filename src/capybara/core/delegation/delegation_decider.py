@@ -5,7 +5,6 @@ Evaluates todo items to decide if they should be delegated or executed
 by the parent agent.
 """
 
-from typing import Dict, Optional
 from capybara.tools.builtin.todo_state import TodoItem
 
 
@@ -17,7 +16,7 @@ class DelegationDecider:
     No time estimation - agent decides based on task characteristics.
     """
 
-    def should_delegate(self, todo: TodoItem, context: Dict) -> bool:
+    def should_delegate(self, todo: TodoItem, context: dict) -> bool:
         """
         Decide if todo should be delegated to child agent.
 
@@ -57,7 +56,7 @@ class DelegationDecider:
         # Delegate if isolated, clear, and parallelizable
         return True
 
-    def generate_context(self, todo: TodoItem, parent_context: Dict) -> str:
+    def generate_context(self, todo: TodoItem, parent_context: dict) -> str:
         """
         Generate rich context message for child agent.
 
@@ -80,16 +79,16 @@ class DelegationDecider:
         context_parts.append(f"Task: {todo.content}")
 
         # Relevant files
-        if 'relevant_files' in parent_context:
-            files = parent_context['relevant_files']
-            context_parts.append(f"\nRelevant files:\n" + "\n".join(f"- {f}" for f in files))
+        if "relevant_files" in parent_context:
+            files = parent_context["relevant_files"]
+            context_parts.append("\nRelevant files:\n" + "\n".join(f"- {f}" for f in files))
 
         # Expected outcome
-        if 'expected_outcome' in parent_context:
+        if "expected_outcome" in parent_context:
             context_parts.append(f"\nExpected outcome: {parent_context['expected_outcome']}")
 
         # Constraints
-        if 'constraints' in parent_context:
+        if "constraints" in parent_context:
             context_parts.append(f"\nConstraints: {parent_context['constraints']}")
 
         return "\n\n".join(context_parts)
@@ -108,17 +107,17 @@ class DelegationDecider:
         """
         vague_keywords = ["improve", "optimize", "enhance", "better"]
         has_vague = any(kw in todo.content.lower() for kw in vague_keywords)
-        has_specifics = any(char in todo.content for char in ['/', '.py', '.js', '.ts', '.md'])
+        has_specifics = any(char in todo.content for char in ["/", ".py", ".js", ".ts", ".md"])
         return has_specifics or not has_vague
 
-    def _has_sequential_dependency(self, todo: TodoItem, context: Dict) -> bool:
+    def _has_sequential_dependency(self, todo: TodoItem, context: dict) -> bool:
         """Check if depends on previous todo completion."""
-        return context.get('has_dependencies', False)
+        return bool(context.get("has_dependencies", False))
 
-    def _is_parallelizable(self, todo: TodoItem, context: Dict) -> bool:
+    def _is_parallelizable(self, todo: TodoItem, context: dict) -> bool:
         """
         Check if can run in parallel with other todos.
 
         Not parallelizable if modifies shared state.
         """
-        return not context.get('modifies_shared_state', False)
+        return not context.get("modifies_shared_state", False)

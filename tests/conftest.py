@@ -1,8 +1,9 @@
 """Pytest configuration and fixtures."""
 
 import pytest
-from capybara.tools.registry import ToolRegistry
+
 from capybara.memory.window import ConversationMemory, MemoryConfig
+from capybara.tools.registry import ToolRegistry
 
 
 @pytest.fixture

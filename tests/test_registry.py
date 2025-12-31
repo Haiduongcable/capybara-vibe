@@ -1,6 +1,7 @@
 """Tests for tool registry."""
 
 import pytest
+
 from capybara.tools.registry import ToolRegistry
 
 

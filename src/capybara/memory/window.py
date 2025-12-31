@@ -1,8 +1,8 @@
 """Sliding window memory with token-based trimming."""
 
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
 import tiktoken
 
@@ -13,7 +13,7 @@ logger = logging.getLogger("capybara.memory")
 class MemoryConfig:
     """Configuration for conversation memory."""
 
-    max_messages: Optional[int] = None
+    max_messages: int | None = None
     max_tokens: int = 100_000
     model: str = "gpt-4o"  # For tokenizer selection
 
@@ -21,10 +21,10 @@ class MemoryConfig:
 class ConversationMemory:
     """Sliding window memory with token counting."""
 
-    def __init__(self, config: Optional[MemoryConfig] = None) -> None:
+    def __init__(self, config: MemoryConfig | None = None) -> None:
         self.config = config or MemoryConfig()
         self._messages: list[dict[str, Any]] = []
-        self._system_prompt: Optional[dict[str, Any]] = None
+        self._system_prompt: dict[str, Any] | None = None
         self._encoder = self._get_encoder()
 
     def _get_encoder(self) -> tiktoken.Encoding:
@@ -129,8 +129,8 @@ class ConversationMemory:
             # Safety check: Don't remove if it would leave us with 0 messages
             if messages_to_remove >= len(self._messages):
                 logger.warning(
-                    f"Memory trimming stopped: would remove all messages "
-                    f"(keeping at least 1 message even if over token limit)"
+                    "Memory trimming stopped: would remove all messages "
+                    "(keeping at least 1 message even if over token limit)"
                 )
                 break
 
@@ -171,9 +171,9 @@ class ConversationMemory:
         SAFETY: Always keeps at least 1 non-tool message to prevent empty message list.
         """
         # Safety valve: Keep removing orphaned tools but preserve at least 1 message
-        while (self._messages and
-               self._messages[0].get("role") == "tool" and
-               len(self._messages) > 1):
+        while (
+            self._messages and self._messages[0].get("role") == "tool" and len(self._messages) > 1
+        ):
             self._messages.pop(0)
 
     def _find_removable_messages(self) -> int:
@@ -193,8 +193,7 @@ class ConversationMemory:
         first_msg = self._messages[0]
 
         # If first message is assistant with tool_calls, must remove tool results too
-        if (first_msg.get("role") == "assistant" and
-            first_msg.get("tool_calls")):
+        if first_msg.get("role") == "assistant" and first_msg.get("tool_calls"):
             # Count consecutive tool messages following this assistant message
             idx = 1
             while idx < len(self._messages):

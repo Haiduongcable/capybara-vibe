@@ -12,10 +12,10 @@ def transform_provider_for_yaml(ui_provider: dict) -> ProviderConfig:
     if provider_type == "proxy":
         # Force OpenAI prefix for LiteLLM to recognize protocol
         if model.startswith("anthropic/"):
-             model = model[10:]
+            model = model[10:]
         elif model.startswith("openai/"):
-             model = model[7:]
-        
+            model = model[7:]
+
         model = f"openai/{model}"
     elif provider_type == "custom" and ui_provider.get("openai_compatible", True):
         # LiteLLM treats no-prefix as OpenAI compatible usually, but 'openai/' is safer for strictness
@@ -59,12 +59,16 @@ def transform_provider_for_ui(provider: ProviderConfig) -> dict:
         provider_type = "proxy"
         model = model[10:]
         openai_compatible = True
-    elif provider.api_base and ("proxypal" in (provider.name or "").lower() or "proxy" in (provider.name or "").lower()):
+    elif provider.api_base and (
+        "proxypal" in (provider.name or "").lower() or "proxy" in (provider.name or "").lower()
+    ):
         provider_type = "proxy"
         openai_compatible = True
         # Remove prefixes if somehow present
-        if model.startswith("openai/"): model = model[7:]
-        elif model.startswith("anthropic/"): model = model[10:]
+        if model.startswith("openai/"):
+            model = model[7:]
+        elif model.startswith("anthropic/"):
+            model = model[10:]
     elif model.startswith("anthropic/"):
         provider_type = "anthropic"
         model = model[10:]

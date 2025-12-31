@@ -3,7 +3,8 @@
 import asyncio
 import functools
 import json
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from capybara.tools.base import AgentMode, ToolRestriction
 
@@ -27,7 +28,7 @@ class ToolRegistry:
         name: str,
         description: str,
         parameters: dict[str, Any],
-        allowed_modes: Optional[list[AgentMode]] = None,
+        allowed_modes: list[AgentMode] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Decorator to register async tools.
 
@@ -49,7 +50,7 @@ class ToolRegistry:
                 async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                     return func(*args, **kwargs)
 
-                target_func = async_wrapper
+                target_func: Callable[..., Any] = async_wrapper
             else:
                 target_func = func
 

@@ -1,9 +1,10 @@
 """Tests for event bus."""
 
 import asyncio
+
 import pytest
 
-from capybara.core.delegation.event_bus import EventBus, Event, EventType
+from capybara.core.delegation.event_bus import Event, EventBus, EventType
 
 
 @pytest.mark.asyncio

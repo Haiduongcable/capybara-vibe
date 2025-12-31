@@ -9,10 +9,10 @@ from typing import Any
 from rich.console import Console
 from rich.live import Live
 
-from capybara.core.delegation.event_bus import Event, EventType, EventBus
+from capybara.core.config.settings import ToolsConfig
+from capybara.core.delegation.event_bus import Event, EventBus, EventType
 from capybara.core.execution.execution_log import ExecutionLog, ToolExecution
 from capybara.core.logging import SessionLoggerAdapter, get_logger, log_error, log_tool_execution
-from capybara.core.config.settings import ToolsConfig
 from capybara.tools.base import AgentMode, ToolPermission
 from capybara.tools.registry import ToolRegistry
 from capybara.ui.diff_renderer import render_diff
@@ -84,8 +84,7 @@ class ToolExecutor:
 
         # Track status of each tool
         tool_statuses = {
-            tc["id"]: {"name": tc["function"]["name"], "status": "pending"}
-            for tc in tool_calls
+            tc["id"]: {"name": tc["function"]["name"], "status": "pending"} for tc in tool_calls
         }
 
         def render_status():
@@ -107,7 +106,9 @@ class ToolExecutor:
                 args = json.loads(args_str)
             except json.JSONDecodeError as e:
                 if self.session_logger:
-                    self.session_logger.error(f"Failed to parse JSON arguments for tool {name}: {e}")
+                    self.session_logger.error(
+                        f"Failed to parse JSON arguments for tool {name}: {e}"
+                    )
                 else:
                     logger.error(f"Failed to parse JSON arguments for tool {name}: {e}")
 
@@ -405,9 +406,7 @@ class ToolExecutor:
         elif name == "edit_file":
             self.execution_log.files_edited.add(args.get("file_path", ""))
 
-    def _log_tool_result(
-        self, name: str, result: Any, success: bool, duration: float
-    ) -> None:
+    def _log_tool_result(self, name: str, result: Any, success: bool, duration: float) -> None:
         """Log tool result."""
         result_str = str(result)
 

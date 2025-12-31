@@ -15,18 +15,26 @@ from capybara.core.agent import (
     Agent,
     AgentConfig,
     AgentState,
-    AgentStatus,
     AgentStateManager,
+    AgentStatus,
     AgentUIRenderer,
 )
 
-# Execution
-from capybara.core.execution import (
-    ExecutionLog,
-    ToolExecution,
-    ToolExecutor,
-    non_streaming_completion,
-    stream_completion,
+# Config
+from capybara.core.config import (
+    DANGEROUS_DIRECTORY_WARNING,
+    CapybaraConfig,
+    MCPConfig,
+    MCPServerConfig,
+    MemoryConfig,
+    ProviderConfig,
+    ToolsConfig,
+    ToolSecurityConfig,
+    init_config,
+    is_dangerous_directory,
+    load_config,
+    save_config,
+    suppress_litellm_output,
 )
 
 # Delegation
@@ -40,29 +48,13 @@ from capybara.core.delegation import (
     get_event_bus,
 )
 
-# Config
-from capybara.core.config import (
-    DANGEROUS_DIRECTORY_WARNING,
-    CapybaraConfig,
-    MCPConfig,
-    MCPServerConfig,
-    MemoryConfig,
-    ProviderConfig,
-    ToolSecurityConfig,
-    ToolsConfig,
-    is_dangerous_directory,
-    load_config,
-    save_config,
-    init_config,
-    suppress_litellm_output,
-)
-
-# Utils
-from capybara.core.utils import (
-    AgentInterruptException,
-    build_child_system_prompt,
-    build_project_context,
-    build_system_prompt,
+# Execution
+from capybara.core.execution import (
+    ExecutionLog,
+    ToolExecution,
+    ToolExecutor,
+    non_streaming_completion,
+    stream_completion,
 )
 
 # Logging (already has its own module)
@@ -74,6 +66,14 @@ from capybara.core.logging import (
     log_error,
     log_state_change,
     log_tool_execution,
+)
+
+# Utils
+from capybara.core.utils import (
+    AgentInterruptException,
+    build_child_system_prompt,
+    build_project_context,
+    build_system_prompt,
 )
 
 __all__ = [

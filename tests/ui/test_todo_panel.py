@@ -4,7 +4,7 @@ import pytest
 from rich.panel import Panel
 from rich.text import Text
 
-from capybara.tools.builtin.todo import TodoItem, TodoStatus, TodoPriority
+from capybara.tools.builtin.todo import TodoItem, TodoStatus
 from capybara.tools.builtin.todo_state import todo_state
 from capybara.ui.todo_panel import PersistentTodoPanel
 
@@ -196,10 +196,12 @@ def test_cleanup_unsubscribes():
     panel.cleanup()
 
     # Update state again
-    todo_state.update_todos([
-        TodoItem(id="1", content="Task 1"),
-        TodoItem(id="2", content="Task 2"),
-    ])
+    todo_state.update_todos(
+        [
+            TodoItem(id="1", content="Task 1"),
+            TodoItem(id="2", content="Task 2"),
+        ]
+    )
 
     # Panel should not receive update after cleanup
     assert len(panel.todos) == 1  # Still old value

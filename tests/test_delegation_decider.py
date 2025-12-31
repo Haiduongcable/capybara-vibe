@@ -1,6 +1,5 @@
 """Tests for DelegationDecider."""
 
-import pytest
 from capybara.core.delegation.delegation_decider import DelegationDecider
 from capybara.tools.builtin.todo import TodoItem, TodoStatus
 
@@ -12,15 +11,8 @@ class TestDelegationDecider:
         """Test isolated tasks are delegated."""
         decider = DelegationDecider()
 
-        todo = TodoItem(
-            id="1",
-            content="Add unit tests for auth.py",
-            status=TodoStatus.PENDING
-        )
-        context = {
-            'has_dependencies': False,
-            'modifies_shared_state': False
-        }
+        todo = TodoItem(id="1", content="Add unit tests for auth.py", status=TodoStatus.PENDING)
+        context = {"has_dependencies": False, "modifies_shared_state": False}
 
         assert decider.should_delegate(todo, context) is True
 
@@ -29,11 +21,9 @@ class TestDelegationDecider:
         decider = DelegationDecider()
 
         todo = TodoItem(
-            id="1",
-            content="Update the file we discussed earlier",
-            status=TodoStatus.PENDING
+            id="1", content="Update the file we discussed earlier", status=TodoStatus.PENDING
         )
-        context = {}
+        context: dict[str, bool] = {}
 
         assert decider.should_delegate(todo, context) is False
 
@@ -42,11 +32,9 @@ class TestDelegationDecider:
         decider = DelegationDecider()
 
         todo = TodoItem(
-            id="1",
-            content="Run tests after migration completes",
-            status=TodoStatus.PENDING
+            id="1", content="Run tests after migration completes", status=TodoStatus.PENDING
         )
-        context = {'has_dependencies': True}
+        context = {"has_dependencies": True}
 
         assert decider.should_delegate(todo, context) is False
 
@@ -54,12 +42,8 @@ class TestDelegationDecider:
         """Test tasks modifying shared state aren't delegated."""
         decider = DelegationDecider()
 
-        todo = TodoItem(
-            id="1",
-            content="Update global configuration",
-            status=TodoStatus.PENDING
-        )
-        context = {'modifies_shared_state': True}
+        todo = TodoItem(id="1", content="Update global configuration", status=TodoStatus.PENDING)
+        context = {"modifies_shared_state": True}
 
         assert decider.should_delegate(todo, context) is False
 
@@ -67,15 +51,11 @@ class TestDelegationDecider:
         """Test context generation for delegated tasks."""
         decider = DelegationDecider()
 
-        todo = TodoItem(
-            id="1",
-            content="Implement login endpoint",
-            status=TodoStatus.PENDING
-        )
+        todo = TodoItem(id="1", content="Implement login endpoint", status=TodoStatus.PENDING)
         parent_context = {
-            'relevant_files': ['src/auth.py', 'tests/test_auth.py'],
-            'expected_outcome': 'POST /login endpoint with JWT response',
-            'constraints': 'Use bcrypt for passwords'
+            "relevant_files": ["src/auth.py", "tests/test_auth.py"],
+            "expected_outcome": "POST /login endpoint with JWT response",
+            "constraints": "Use bcrypt for passwords",
         }
 
         context_msg = decider.generate_context(todo, parent_context)

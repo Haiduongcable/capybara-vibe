@@ -3,9 +3,9 @@
 import time
 from typing import Any
 
-from rich.spinner import Spinner
-from rich.live import Live
 from rich.console import Group
+from rich.live import Live
+from rich.spinner import Spinner
 from rich.text import Text
 
 from capybara.core.agent import Agent
@@ -40,11 +40,7 @@ def _format_tool_args(args: dict[str, Any]) -> str:
 
 
 async def display_sub_agent_progress(
-    parent_agent: Agent,
-    child_session_id: str,
-    task: str,
-    timeout: float,
-    parent_session_id: str
+    parent_agent: Agent, child_session_id: str, task: str, timeout: float, parent_session_id: str
 ) -> None:
     """Display sub-agent work progress with minimal output.
 
@@ -60,9 +56,13 @@ async def display_sub_agent_progress(
     event_bus = get_event_bus()
 
     # Render static header (outside Live to avoid flickering)
-    parent_agent.console.print("\n[bold cyan]╭──────────────────────────── SubAgent ─────────────────────────────╮[/bold cyan]")
+    parent_agent.console.print(
+        "\n[bold cyan]╭──────────────────────────── SubAgent ─────────────────────────────╮[/bold cyan]"
+    )
     parent_agent.console.print(f"[bold cyan]│[/bold cyan] [dim]Task: {task[:62]}...[/dim]")
-    parent_agent.console.print(f"[bold cyan]│[/bold cyan] ⚙️  Autonomous execution (timeout: {timeout}s)")
+    parent_agent.console.print(
+        f"[bold cyan]│[/bold cyan] ⚙️  Autonomous execution (timeout: {timeout}s)"
+    )
     parent_agent.console.print("[bold cyan]│[/bold cyan]")
 
     # Track child status in flow renderer
@@ -71,7 +71,7 @@ async def display_sub_agent_progress(
             session_id=child_session_id,
             mode="child",
             state=AgentState.THINKING,
-            parent_session=parent_session_id
+            parent_session=parent_session_id,
         )
         parent_agent.flow_renderer.update_child(child_session_id, child_status)
 
@@ -82,7 +82,7 @@ async def display_sub_agent_progress(
 
     def render_progress():
         """Build current progress display with spinner if thinking."""
-        lines = []
+        lines: list[Text | Group] = []
 
         # Add accumulated tool lines
         for line in tool_lines:
@@ -90,19 +90,17 @@ async def display_sub_agent_progress(
 
         # Add spinner if thinking
         if is_thinking:
-            lines.append(Group(
-                Text("│ ", style="bold cyan"),
-                Spinner("dots", text="Thinking...", style="cyan")
-            ))
+            lines.append(
+                Group(
+                    Text("│ ", style="bold cyan"), Spinner("dots", text="Thinking...", style="cyan")
+                )
+            )
 
         return Group(*lines) if lines else Text("")
 
     # Use Live display for animated spinner
     with Live(
-        render_progress(),
-        console=parent_agent.console,
-        refresh_per_second=10,
-        transient=True
+        render_progress(), console=parent_agent.console, refresh_per_second=10, transient=True
     ) as live:
         async for event in event_bus.subscribe(child_session_id):
             if event.event_type == EventType.AGENT_STATE_CHANGE:
@@ -167,7 +165,9 @@ async def display_sub_agent_progress(
         parent_agent.console.print(line)
 
     # Print closing box
-    parent_agent.console.print("[bold cyan]╰────────────────────────────────────────────────────────────────────╮[/bold cyan]\n")
+    parent_agent.console.print(
+        "[bold cyan]╰────────────────────────────────────────────────────────────────────╮[/bold cyan]\n"
+    )
 
     # Cleanup flow renderer
     if parent_agent.flow_renderer:

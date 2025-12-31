@@ -1,16 +1,17 @@
 """Tests for delegation tool."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import patch
+
+import pytest
 
 from capybara.core.agent import Agent, AgentConfig
 from capybara.core.delegation.session_manager import SessionManager
-from capybara.memory.window import ConversationMemory
 from capybara.memory.storage import ConversationStorage
-from capybara.tools.registry import ToolRegistry
+from capybara.memory.window import ConversationMemory
 from capybara.tools.base import AgentMode
-from capybara.tools.builtin.delegate import delegate_task_impl
+from capybara.tools.builtin.delegation.sub_agent_tool import execute_sub_agent
+from capybara.tools.registry import ToolRegistry
 
 
 @pytest.mark.asyncio
@@ -36,25 +37,26 @@ async def test_delegate_creates_child_session(tmp_path: Path):
         # Publish AGENT_DONE event so progress display completes
         if self.session_id:
             from capybara.core.delegation.event_bus import Event, EventType
-            await self.event_bus.publish(Event(
-                session_id=self.session_id,
-                event_type=EventType.AGENT_DONE,
-                metadata={"status": "completed"}
-            ))
+
+            await self.event_bus.publish(
+                Event(
+                    session_id=self.session_id,
+                    event_type=EventType.AGENT_DONE,
+                    metadata={"status": "completed"},
+                )
+            )
         return f"Child completed: {prompt}"
 
     # Patch Agent.run temporarily
-    original_run = Agent.run
-    Agent.run = mock_run
-
-    try:
-        result = await delegate_task_impl(
-            prompt="Test task",
+    # Patch Agent.run temporarily
+    with patch.object(Agent, "run", side_effect=mock_run):
+        result = await execute_sub_agent(
+            task="Test task",
             parent_session_id=parent_id,
             parent_agent=parent_agent,
             session_manager=manager,
             storage=storage,
-            timeout=5.0
+            timeout=5.0,
         )
 
         # Verify child session created
@@ -66,10 +68,6 @@ async def test_delegate_creates_child_session(tmp_path: Path):
         assert "<session_id>" in result
         assert "<status>completed</status>" in result
         assert "Child completed: Test task" in result
-
-    finally:
-        # Restore original
-        Agent.run = original_run
 
 
 @pytest.mark.asyncio
@@ -96,17 +94,14 @@ async def test_delegate_timeout_handling(tmp_path: Path):
         await asyncio.sleep(10)  # Longer than timeout
         return "Should not reach here"
 
-    original_run = Agent.run
-    Agent.run = slow_run
-
-    try:
-        result = await delegate_task_impl(
-            prompt="Slow task",
+    with patch.object(Agent, "run", side_effect=slow_run):
+        result = await execute_sub_agent(
+            task="Slow task",
             parent_session_id=parent_id,
             parent_agent=parent_agent,
             session_manager=manager,
             storage=storage,
-            timeout=0.5  # Very short timeout
+            timeout=0.5,  # Very short timeout
         )
 
         # Verify timeout message with structured failure
@@ -114,9 +109,6 @@ async def test_delegate_timeout_handling(tmp_path: Path):
         assert "<status>failed</status>" in result
         assert "<failure_category>timeout</failure_category>" in result
         assert "<retryable>true</retryable>" in result or "<retryable>false</retryable>" in result
-
-    finally:
-        Agent.run = original_run
 
 
 @pytest.mark.asyncio
@@ -140,27 +132,24 @@ async def test_delegate_error_handling(tmp_path: Path):
     async def failing_run(self, prompt):
         raise ValueError("Simulated error")
 
-    original_run = Agent.run
-    Agent.run = failing_run
-
-    try:
-        result = await delegate_task_impl(
-            prompt="Failing task",
+    with patch.object(Agent, "run", side_effect=failing_run):
+        result = await execute_sub_agent(
+            task="Failing task",
             parent_session_id=parent_id,
             parent_agent=parent_agent,
             session_manager=manager,
             storage=storage,
-            timeout=5.0
+            timeout=5.0,
         )
 
         # Verify error message with structured failure
         assert "failed" in result
         assert "ValueError" in result
         assert "<status>failed</status>" in result
-        assert "<failure_category>tool_error</failure_category>" in result or "<failure_category>invalid_task</failure_category>" in result
-
-    finally:
-        Agent.run = original_run
+        assert (
+            "<failure_category>tool_error</failure_category>" in result
+            or "<failure_category>invalid_task</failure_category>" in result
+        )
 
 
 @pytest.mark.asyncio
@@ -184,24 +173,24 @@ async def test_delegate_logs_events(tmp_path: Path):
         # Publish AGENT_DONE event so progress display completes
         if self.session_id:
             from capybara.core.delegation.event_bus import Event, EventType
-            await self.event_bus.publish(Event(
-                session_id=self.session_id,
-                event_type=EventType.AGENT_DONE,
-                metadata={"status": "completed"}
-            ))
+
+            await self.event_bus.publish(
+                Event(
+                    session_id=self.session_id,
+                    event_type=EventType.AGENT_DONE,
+                    metadata={"status": "completed"},
+                )
+            )
         return "Done"
 
-    original_run = Agent.run
-    Agent.run = mock_run
-
-    try:
-        await delegate_task_impl(
-            prompt="Event test",
+    with patch.object(Agent, "run", side_effect=mock_run):
+        await execute_sub_agent(
+            task="Event test",
             parent_session_id=parent_id,
             parent_agent=parent_agent,
             session_manager=manager,
             storage=storage,
-            timeout=5.0
+            timeout=5.0,
         )
 
         # Check events were logged
@@ -212,13 +201,10 @@ async def test_delegate_logs_events(tmp_path: Path):
         assert "delegation_start" in event_types
         assert "delegation_complete" in event_types
 
-    finally:
-        Agent.run = original_run
-
 
 @pytest.mark.asyncio
 async def test_child_mode_no_delegation(tmp_path: Path):
-    """Test that child agents cannot use solve_task."""
+    """Test that child agents cannot use sub_agent."""
     from capybara.tools.builtin import register_builtin_tools
 
     storage = ConversationStorage(tmp_path / "test.db")
@@ -242,13 +228,13 @@ async def test_child_mode_no_delegation(tmp_path: Path):
         parent_session_id=parent_id,
         parent_agent=parent_agent,
         session_manager=manager,
-        storage=storage
+        storage=storage,
     )
 
     # Filter for parent mode (should have solve_task)
     parent_filtered = parent_tools.filter_by_mode(AgentMode.PARENT)
-    assert "solve_task" in parent_filtered.list_tools()
+    assert "sub_agent" in parent_filtered.list_tools()
 
     # Filter for child mode (should NOT have solve_task)
     child_filtered = parent_tools.filter_by_mode(AgentMode.CHILD)
-    assert "solve_task" not in child_filtered.list_tools()
+    assert "sub_agent" not in child_filtered.list_tools()

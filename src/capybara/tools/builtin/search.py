@@ -1,9 +1,7 @@
 """Search tools: glob patterns and grep."""
 
 import asyncio
-import fnmatch
 from pathlib import Path
-from typing import Optional
 
 from capybara.tools.registry import ToolRegistry
 
@@ -90,7 +88,7 @@ Usage:
     async def grep_search(
         pattern: str,
         path: str = ".",
-        file_pattern: Optional[str] = None,
+        file_pattern: str | None = None,
         limit: int = 50,
     ) -> str:
         """Search for pattern in files using ripgrep or grep."""
@@ -114,9 +112,7 @@ Usage:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=30
-            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
 
             if process.returncode == 0:
                 output = stdout.decode("utf-8", errors="replace")

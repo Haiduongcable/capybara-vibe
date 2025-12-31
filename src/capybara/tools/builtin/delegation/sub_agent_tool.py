@@ -5,18 +5,18 @@ import time
 
 from capybara.core.agent import Agent
 from capybara.core.agent.status import AgentState
-from capybara.core.logging import log_delegation, log_error
 from capybara.core.delegation.session_manager import SessionManager
+from capybara.core.logging import log_delegation
 from capybara.memory.storage import ConversationStorage
 from capybara.tools.base import AgentMode
-from capybara.tools.registry import ToolRegistry
 from capybara.tools.builtin.delegation.agent_setup import create_sub_agent
+from capybara.tools.builtin.delegation.error_handler import (
+    handle_exception_error,
+    handle_timeout_error,
+)
 from capybara.tools.builtin.delegation.progress_display import display_sub_agent_progress
 from capybara.tools.builtin.delegation.success_handler import handle_success
-from capybara.tools.builtin.delegation.error_handler import (
-    handle_timeout_error,
-    handle_exception_error
-)
+from capybara.tools.registry import ToolRegistry
 
 
 async def execute_sub_agent(
@@ -57,7 +57,7 @@ async def execute_sub_agent(
         parent_id=parent_session_id,
         model=parent_agent.config.model,
         prompt=task,
-        title=f"Subtask: {task[:50]}..."
+        title=f"Subtask: {task[:50]}...",
     )
 
     # Create configured sub-agent (inherits parent's provider/API keys)
@@ -65,14 +65,13 @@ async def execute_sub_agent(
         parent_agent=parent_agent,
         child_session_id=child_session_id,
         parent_session_id=parent_session_id,
-        timeout=timeout
+        timeout=timeout,
     )
 
     # Update parent state
     if parent_agent.flow_renderer:
         parent_agent._update_state(
-            AgentState.WAITING_FOR_CHILD,
-            f"Sub-agent working: {task[:40]}..."
+            AgentState.WAITING_FOR_CHILD, f"Sub-agent working: {task[:40]}..."
         )
         parent_agent.status.child_sessions.append(child_session_id)
 
@@ -80,7 +79,7 @@ async def execute_sub_agent(
     await storage.log_session_event(
         session_id=parent_session_id,
         event_type="delegation_start",
-        metadata={"child_session_id": child_session_id, "task": task[:100]}
+        metadata={"child_session_id": child_session_id, "task": task[:100]},
     )
 
     if parent_agent.session_logger:
@@ -89,7 +88,7 @@ async def execute_sub_agent(
             action="start",
             parent_session=parent_session_id,
             child_session=child_session_id,
-            prompt=task[:100]
+            prompt=task[:100],
         )
 
     try:
@@ -102,10 +101,10 @@ async def execute_sub_agent(
                     child_session_id=child_session_id,
                     task=task,
                     timeout=timeout,
-                    parent_session_id=parent_session_id
-                )
+                    parent_session_id=parent_session_id,
+                ),
             ),
-            timeout=timeout
+            timeout=timeout,
         )
 
         # Handle successful execution
@@ -116,7 +115,7 @@ async def execute_sub_agent(
             parent_agent=parent_agent,
             parent_session_id=parent_session_id,
             storage=storage,
-            duration=time.time() - start_time
+            duration=time.time() - start_time,
         )
 
     except asyncio.TimeoutError:
@@ -128,7 +127,7 @@ async def execute_sub_agent(
             storage=storage,
             start_time=start_time,
             timeout=timeout,
-            task=task
+            task=task,
         )
 
     except Exception as e:
@@ -140,7 +139,7 @@ async def execute_sub_agent(
             parent_session_id=parent_session_id,
             storage=storage,
             start_time=start_time,
-            task=task
+            task=task,
         )
 
 
@@ -149,7 +148,7 @@ def register_sub_agent_tool(
     parent_session_id: str,
     parent_agent: Agent,
     session_manager: SessionManager,
-    storage: ConversationStorage
+    storage: ConversationStorage,
 ) -> None:
     """Register sub_agent tool for autonomous work delegation.
 
@@ -176,17 +175,17 @@ def register_sub_agent_tool(
                         "specific files/directories involved, expected outcomes, requirements. "
                         "Sub-agent has full tool access (read, write, edit, bash, grep, etc.) "
                         "but NO access to your conversation history - provide complete context."
-                    )
+                    ),
                 },
                 "timeout": {
                     "type": "number",
                     "description": "Maximum execution time in seconds (default: 180s)",
-                    "default": 180.0
-                }
+                    "default": 180.0,
+                },
             },
-            "required": ["task"]
+            "required": ["task"],
         },
-        allowed_modes=[AgentMode.PARENT]
+        allowed_modes=[AgentMode.PARENT],
     )
     async def sub_agent(task: str, timeout: float = 180.0) -> str:
         """Execute sub-agent for autonomous work task."""
@@ -196,5 +195,5 @@ def register_sub_agent_tool(
             parent_agent=parent_agent,
             session_manager=session_manager,
             storage=storage,
-            timeout=timeout
+            timeout=timeout,
         )

@@ -1,7 +1,8 @@
 """Test sequential todo execution enforcement."""
 
 import pytest
-from capybara.tools.builtin.todo import TodoItem, TodoStatus, register_todo_tool
+
+from capybara.tools.builtin.todo import register_todo_tool
 from capybara.tools.registry import ToolRegistry
 
 
@@ -21,7 +22,7 @@ async def test_single_in_progress_task_allowed(todo_tool):
     todos = [
         {"id": "1", "content": "Task 1", "status": "in_progress"},
         {"id": "2", "content": "Task 2", "status": "pending"},
-        {"id": "3", "content": "Task 3", "status": "completed"}
+        {"id": "3", "content": "Task 3", "status": "completed"},
     ]
 
     result = await todo_tool(action="write", todos=todos)
@@ -37,7 +38,7 @@ async def test_multiple_in_progress_tasks_rejected(todo_tool):
     todos = [
         {"id": "1", "content": "Task 1", "status": "in_progress"},
         {"id": "2", "content": "Task 2", "status": "in_progress"},
-        {"id": "3", "content": "Task 3", "status": "pending"}
+        {"id": "3", "content": "Task 3", "status": "pending"},
     ]
 
     result = await todo_tool(action="write", todos=todos)
@@ -55,7 +56,7 @@ async def test_no_in_progress_tasks_allowed(todo_tool):
     todos = [
         {"id": "1", "content": "Task 1", "status": "pending"},
         {"id": "2", "content": "Task 2", "status": "pending"},
-        {"id": "3", "content": "Task 3", "status": "completed"}
+        {"id": "3", "content": "Task 3", "status": "completed"},
     ]
 
     result = await todo_tool(action="write", todos=todos)
@@ -71,7 +72,7 @@ async def test_transition_between_tasks(todo_tool):
     # Start with task 1 in progress
     todos_step1 = [
         {"id": "1", "content": "Task 1", "status": "in_progress"},
-        {"id": "2", "content": "Task 2", "status": "pending"}
+        {"id": "2", "content": "Task 2", "status": "pending"},
     ]
 
     result1 = await todo_tool(action="write", todos=todos_step1)
@@ -80,7 +81,7 @@ async def test_transition_between_tasks(todo_tool):
     # Complete task 1, start task 2
     todos_step2 = [
         {"id": "1", "content": "Task 1", "status": "completed"},
-        {"id": "2", "content": "Task 2", "status": "in_progress"}
+        {"id": "2", "content": "Task 2", "status": "in_progress"},
     ]
 
     result2 = await todo_tool(action="write", todos=todos_step2)
@@ -89,7 +90,7 @@ async def test_transition_between_tasks(todo_tool):
     # Attempt to mark both as in_progress (should fail)
     todos_step3 = [
         {"id": "1", "content": "Task 1", "status": "in_progress"},
-        {"id": "2", "content": "Task 2", "status": "in_progress"}
+        {"id": "2", "content": "Task 2", "status": "in_progress"},
     ]
 
     result3 = await todo_tool(action="write", todos=todos_step3)
@@ -103,7 +104,7 @@ async def test_three_in_progress_tasks_rejected(todo_tool):
     todos = [
         {"id": "1", "content": "Task 1", "status": "in_progress"},
         {"id": "2", "content": "Task 2", "status": "in_progress"},
-        {"id": "3", "content": "Task 3", "status": "in_progress"}
+        {"id": "3", "content": "Task 3", "status": "in_progress"},
     ]
 
     result = await todo_tool(action="write", todos=todos)

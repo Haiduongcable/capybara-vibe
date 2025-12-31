@@ -61,12 +61,8 @@ def generate_diff(
     output_lines = [f"Update({filename})"]
 
     # Count changes
-    additions = sum(
-        1 for line in diff if line.startswith("+") and not line.startswith("+++")
-    )
-    deletions = sum(
-        1 for line in diff if line.startswith("-") and not line.startswith("---")
-    )
+    additions = sum(1 for line in diff if line.startswith("+") and not line.startswith("+++"))
+    deletions = sum(1 for line in diff if line.startswith("-") and not line.startswith("---"))
 
     change_summary = []
     if additions > 0:

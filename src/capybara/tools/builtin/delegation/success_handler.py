@@ -4,7 +4,6 @@ from capybara.core.agent import Agent
 from capybara.core.agent.status import AgentState
 from capybara.core.logging import log_delegation
 from capybara.memory.storage import ConversationStorage
-from capybara.memory.window import ConversationMemory
 from capybara.tools.builtin.delegation.work_report import generate_work_report
 
 
@@ -15,7 +14,7 @@ async def handle_success(
     parent_agent: Agent,
     parent_session_id: str,
     storage: ConversationStorage,
-    duration: float
+    duration: float,
 ) -> str:
     """Handle successful sub-agent execution with logging and work report."""
 
@@ -26,10 +25,7 @@ async def handle_success(
     # Update parent state
     if parent_agent.flow_renderer:
         parent_agent.status.child_sessions.remove(child_session_id)
-        parent_agent._update_state(
-            AgentState.EXECUTING_TOOLS,
-            "Processing work report"
-        )
+        parent_agent._update_state(AgentState.EXECUTING_TOOLS, "Processing work report")
 
     # Log completion event
     await storage.log_session_event(
@@ -38,8 +34,8 @@ async def handle_success(
         metadata={
             "child_session_id": child_session_id,
             "duration": duration,
-            "status": "completed"
-        }
+            "status": "completed",
+        },
     )
 
     # Log to session logger
@@ -49,7 +45,7 @@ async def handle_success(
             action="complete",
             parent_session=parent_session_id,
             child_session=child_session_id,
-            duration=f"{duration:.2f}s"
+            duration=f"{duration:.2f}s",
         )
 
     # Generate comprehensive work report
@@ -57,5 +53,5 @@ async def handle_success(
         response=response,
         execution_log=child_agent.execution_log,
         session_id=child_session_id,
-        duration=duration
+        duration=duration,
     )

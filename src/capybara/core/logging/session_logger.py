@@ -1,9 +1,8 @@
 """Session-based logging with unique log files per session."""
 
 import logging
-from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from pathlib import Path
 
 
 class SessionLoggerAdapter(logging.LoggerAdapter):
@@ -12,8 +11,8 @@ class SessionLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         """Add session and agent context to log message."""
         extra = self.extra or {}
-        session_id = str(extra.get('session_id', 'unknown'))
-        agent_mode = str(extra.get('agent_mode', 'unknown'))
+        session_id = str(extra.get("session_id", "unknown"))
+        agent_mode = str(extra.get("agent_mode", "unknown"))
 
         # Format: [parent|child:session_id] message
         prefix = f"[{agent_mode}:{session_id[:8]}]"
@@ -23,7 +22,7 @@ class SessionLoggerAdapter(logging.LoggerAdapter):
 class SessionLogManager:
     """Manages session-based logging with separate log files per session."""
 
-    def __init__(self, base_log_dir: Optional[Path] = None):
+    def __init__(self, base_log_dir: Path | None = None):
         """Initialize session log manager.
 
         Args:
@@ -48,7 +47,7 @@ class SessionLogManager:
         session_id: str,
         agent_mode: str = "parent",
         log_level: str = "INFO",
-        parent_session_id: Optional[str] = None
+        parent_session_id: str | None = None,
     ) -> SessionLoggerAdapter:
         """Create a session-specific logger with its own log file.
 
@@ -73,8 +72,7 @@ class SessionLogManager:
         if session_id in self._session_handlers:
             # Return existing adapter
             return SessionLoggerAdapter(
-                logger,
-                {'session_id': session_id, 'agent_mode': agent_mode}
+                logger, {"session_id": session_id, "agent_mode": agent_mode}
             )
 
         # Create session log file: sessions/YYYYMMDD/session_{log_session_id[:8]}.log
@@ -85,8 +83,7 @@ class SessionLogManager:
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter(
-            "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
         file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
@@ -102,10 +99,7 @@ class SessionLogManager:
         self._session_handlers[session_id] = (file_handler, daily_handler)
 
         # Create adapter with session context
-        adapter = SessionLoggerAdapter(
-            logger,
-            {'session_id': session_id, 'agent_mode': agent_mode}
-        )
+        adapter = SessionLoggerAdapter(logger, {"session_id": session_id, "agent_mode": agent_mode})
 
         adapter.info(f"Session logger initialized (mode={agent_mode})")
         return adapter

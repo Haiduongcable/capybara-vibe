@@ -17,7 +17,11 @@ def console():
 
 def get_console_output(console: Console) -> str:
     """Extract rendered output from console's StringIO."""
-    return console.file.getvalue()
+    # MyPy doesn't know console.file is StringIO here
+    from io import StringIO
+    from typing import cast
+
+    return cast(StringIO, console.file).getvalue()
 
 
 def test_render_diff_basic():

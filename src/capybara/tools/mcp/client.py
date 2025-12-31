@@ -1,7 +1,7 @@
 """MCP client for connecting to Model Context Protocol servers."""
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 from capybara.core.config import MCPServerConfig
 
@@ -12,7 +12,7 @@ class MCPClient:
     def __init__(self, name: str, config: MCPServerConfig) -> None:
         self.name = name
         self.config = config
-        self._process: Optional[asyncio.subprocess.Process] = None
+        self._process: asyncio.subprocess.Process | None = None
         self._tools: list[dict[str, Any]] = []
         self._connected = False
 
@@ -40,10 +40,7 @@ class MCPClient:
 
                     # List available tools
                     tools_response = await session.list_tools()
-                    self._tools = [
-                        self._convert_tool_schema(tool)
-                        for tool in tools_response.tools
-                    ]
+                    self._tools = [self._convert_tool_schema(tool) for tool in tools_response.tools]
                     self._connected = True
 
             return True
@@ -80,7 +77,7 @@ class MCPClient:
 
             # Strip server prefix from tool name
             if tool_name.startswith(f"{self.name}__"):
-                tool_name = tool_name[len(self.name) + 2:]
+                tool_name = tool_name[len(self.name) + 2 :]
 
             server_params = StdioServerParameters(
                 command=self.config.command,

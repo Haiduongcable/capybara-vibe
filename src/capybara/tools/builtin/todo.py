@@ -9,13 +9,14 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from capybara.tools.registry import ToolRegistry
 from capybara.tools.base import AgentMode
+from capybara.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
     pass
 
 # --- Data Models ---
+
 
 class TodoStatus(str, Enum):
     PENDING = "pending"
@@ -23,10 +24,12 @@ class TodoStatus(str, Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+
 class TodoPriority(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
 
 class TodoItem(BaseModel):
     id: str
@@ -34,16 +37,20 @@ class TodoItem(BaseModel):
     status: TodoStatus = TodoStatus.PENDING
     priority: TodoPriority = TodoPriority.MEDIUM
 
+
 # --- State ---
 
 # In-memory storage for the session
 _TODOS: list[TodoItem] = []
 
+
 def get_todos() -> list[TodoItem]:
     """Get current list of todos (read-only copy)."""
     return list(_TODOS)
 
+
 # --- Tool Implementation ---
+
 
 def register_todo_tool(registry: ToolRegistry) -> None:
     """Register todo tool with the registry."""
@@ -68,7 +75,7 @@ def register_todo_tool(registry: ToolRegistry) -> None:
                     "description": (
                         "Action: 'write' (create new list), 'read' (view), "
                         "'update' (modify todo), 'complete' (mark done), 'delete' (clear all)"
-                    )
+                    ),
                 },
                 "todos": {
                     "type": "array",
@@ -79,38 +86,35 @@ def register_todo_tool(registry: ToolRegistry) -> None:
                             "content": {"type": "string"},
                             "status": {
                                 "type": "string",
-                                "enum": ["pending", "in_progress", "completed", "cancelled"]
+                                "enum": ["pending", "in_progress", "completed", "cancelled"],
                             },
-                            "priority": {
-                                "type": "string",
-                                "enum": ["low", "medium", "high"]
-                            }
+                            "priority": {"type": "string", "enum": ["low", "medium", "high"]},
                         },
-                        "required": ["id", "content"]
+                        "required": ["id", "content"],
                     },
-                    "description": "List of todos (required for 'write' action)."
+                    "description": "List of todos (required for 'write' action).",
                 },
                 "id": {
                     "type": "string",
-                    "description": "Todo ID (required for 'update' and 'complete' actions)."
+                    "description": "Todo ID (required for 'update' and 'complete' actions).",
                 },
                 "status": {
                     "type": "string",
                     "enum": ["pending", "in_progress", "completed", "cancelled"],
-                    "description": "New status (optional for 'update' action)."
+                    "description": "New status (optional for 'update' action).",
                 },
                 "content": {
                     "type": "string",
-                    "description": "New content (optional for 'update' action)."
+                    "description": "New content (optional for 'update' action).",
                 },
                 "priority": {
                     "type": "string",
                     "enum": ["low", "medium", "high"],
-                    "description": "New priority (optional for 'update' action)."
-                }
+                    "description": "New priority (optional for 'update' action).",
+                },
             },
-            "required": ["action"]
-        }
+            "required": ["action"],
+        },
     )
     async def todo(
         action: str,
@@ -118,17 +122,20 @@ def register_todo_tool(registry: ToolRegistry) -> None:
         id: str | None = None,
         status: str | None = None,
         content: str | None = None,
-        priority: str | None = None
+        priority: str | None = None,
     ) -> str:
         """Manage the todo list."""
         global _TODOS
 
         if action == "read":
-            return json.dumps({
-                "message": f"Retrieved {len(_TODOS)} todos",
-                "todos": [t.model_dump() for t in _TODOS],
-                "total_count": len(_TODOS)
-            }, indent=2)
+            return json.dumps(
+                {
+                    "message": f"Retrieved {len(_TODOS)} todos",
+                    "todos": [t.model_dump() for t in _TODOS],
+                    "total_count": len(_TODOS),
+                },
+                indent=2,
+            )
 
         elif action == "write":
             # VALIDATION: Can only write when list is empty or all completed
@@ -172,11 +179,14 @@ def register_todo_tool(registry: ToolRegistry) -> None:
                 # Notify state manager for UI updates
                 _notify_state_change(new_list)
 
-                return json.dumps({
-                    "message": f"Created {len(_TODOS)} todos",
-                    "todos": [t.model_dump() for t in _TODOS],
-                    "total_count": len(_TODOS)
-                }, indent=2)
+                return json.dumps(
+                    {
+                        "message": f"Created {len(_TODOS)} todos",
+                        "todos": [t.model_dump() for t in _TODOS],
+                        "total_count": len(_TODOS),
+                    },
+                    indent=2,
+                )
 
             except Exception as e:
                 return f"Error creating todos: {e}"
@@ -219,7 +229,7 @@ def register_todo_tool(registry: ToolRegistry) -> None:
                     update_data["priority"] = todo_to_update.priority.value
 
                 # Create updated todo
-                updated_todo = TodoItem(**update_data)
+                updated_todo = TodoItem(**update_data)  # type: ignore
 
                 # VALIDATION: Check in_progress constraint
                 new_list = _TODOS.copy()
@@ -240,11 +250,14 @@ def register_todo_tool(registry: ToolRegistry) -> None:
                 # Notify state manager
                 _notify_state_change(_TODOS)
 
-                return json.dumps({
-                    "message": f"Updated todo '{id}'",
-                    "todo": updated_todo.model_dump(),
-                    "total_count": len(_TODOS)
-                }, indent=2)
+                return json.dumps(
+                    {
+                        "message": f"Updated todo '{id}'",
+                        "todo": updated_todo.model_dump(),
+                        "total_count": len(_TODOS),
+                    },
+                    indent=2,
+                )
 
             except Exception as e:
                 return f"Error updating todo '{id}': {e}"
@@ -275,7 +288,7 @@ def register_todo_tool(registry: ToolRegistry) -> None:
                     id=todo_to_complete.id,
                     content=todo_to_complete.content,
                     status=TodoStatus.COMPLETED,
-                    priority=todo_to_complete.priority
+                    priority=todo_to_complete.priority,
                 )
 
                 _TODOS[todo_index] = completed_todo
@@ -284,12 +297,15 @@ def register_todo_tool(registry: ToolRegistry) -> None:
                 _notify_state_change(_TODOS)
 
                 completed_count = sum(1 for t in _TODOS if t.status == TodoStatus.COMPLETED)
-                return json.dumps({
-                    "message": f"Completed todo '{id}' ({completed_count}/{len(_TODOS)} done)",
-                    "todo": completed_todo.model_dump(),
-                    "total_count": len(_TODOS),
-                    "completed_count": completed_count
-                }, indent=2)
+                return json.dumps(
+                    {
+                        "message": f"Completed todo '{id}' ({completed_count}/{len(_TODOS)} done)",
+                        "todo": completed_todo.model_dump(),
+                        "total_count": len(_TODOS),
+                        "completed_count": completed_count,
+                    },
+                    indent=2,
+                )
 
             except Exception as e:
                 return f"Error completing todo '{id}': {e}"
@@ -304,10 +320,10 @@ def register_todo_tool(registry: ToolRegistry) -> None:
             # Notify state manager
             _notify_state_change([])
 
-            return json.dumps({
-                "message": f"Deleted {count} todos. Todo list cleared.",
-                "total_count": 0
-            }, indent=2)
+            return json.dumps(
+                {"message": f"Deleted {count} todos. Todo list cleared.", "total_count": 0},
+                indent=2,
+            )
 
         else:
             return f"Error: Unknown action '{action}'. Valid actions: read, write, update, complete, delete"
@@ -320,6 +336,7 @@ def _notify_state_change(todos: list[TodoItem]) -> None:
     """
     try:
         from capybara.tools.builtin.todo_state import todo_state
+
         todo_state.update_todos(todos)
     except ImportError:
         # State manager not available, skip notification

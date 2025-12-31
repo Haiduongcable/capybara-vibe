@@ -4,10 +4,7 @@ from capybara.core.execution.execution_log import ExecutionLog
 
 
 def generate_work_report(
-    response: str,
-    execution_log: ExecutionLog | None,
-    session_id: str,
-    duration: float
+    response: str, execution_log: ExecutionLog | None, session_id: str, duration: float
 ) -> str:
     """Generate comprehensive work report from sub-agent execution.
 
@@ -31,14 +28,13 @@ Duration: {duration:.2f}s
 Note: Detailed execution tracking not available."""
 
     # Build comprehensive report
-    files_modified_list = ', '.join(sorted(execution_log.files_modified)) or 'none'
-    files_read_list = ', '.join(sorted(execution_log.files_read)) or 'none'
+    files_modified_list = ", ".join(sorted(execution_log.files_modified)) or "none"
+    files_read_list = ", ".join(sorted(execution_log.files_read)) or "none"
 
     tool_summary_lines = [
-        f"  - {tool}: {count}x"
-        for tool, count in execution_log.tool_usage_summary.items()
+        f"  - {tool}: {count}x" for tool, count in execution_log.tool_usage_summary.items()
     ]
-    tool_summary = '\n'.join(tool_summary_lines) if tool_summary_lines else '  (none)'
+    tool_summary = "\n".join(tool_summary_lines) if tool_summary_lines else "  (none)"
 
     error_section = ""
     if execution_log.errors:

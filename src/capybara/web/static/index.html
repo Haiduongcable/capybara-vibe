@@ -14,6 +14,24 @@
         .provider-item.drag-over {
             border-top: 2px solid #3b82f6;
         }
+
+        /* Custom scrollbar for model list */
+        .model-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .model-list::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        .model-list::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        .model-list::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
     </style>
 </head>
 
@@ -69,15 +87,20 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">Model</label>
-                    <div class="relative">
-                        <input type="text" id="form-model" list="model-suggestions"
+                    <div class="relative group">
+                        <input type="text" id="form-model" autocomplete="off"
                             class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 pr-24 focus:outline-none focus:border-blue-500">
-                        <button onclick="fetchModels()" id="fetch-models-btn"
+                        <button onclick="fetchModels(true)" id="fetch-models-btn"
                             class="absolute right-1 top-1 bottom-1 px-2 bg-gray-600 hover:bg-gray-500 rounded text-xs transition hidden">
                             ↻ Refresh
                         </button>
+
+                        <!-- Custom Model List Dropdown -->
+                        <div id="model-list-dropdown"
+                            class="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-xl hidden max-h-60 overflow-y-auto model-list">
+                            <!-- Models will be injected here -->
+                        </div>
                     </div>
-                    <datalist id="model-suggestions"></datalist>
                 </div>
             </div>
 
@@ -151,13 +174,14 @@
         // State
         let providers = [];
         let selectedIndex = -1;
+        let isDropdownVisible = false;
 
         // Model suggestions per provider type
         const MODELS = {
             openai: ['gpt-4o', 'gpt-5', 'o1', 'o1-mini', 'o1-preview'],
             google: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-pro'],
             anthropic: ['claude-4-5-sonnet'],
-            proxy: ['gemini-3-pro-preview', 'gpt-5.1-codex', 'claude-4-sonnet', 'gpt-4o'],
+            proxy: [], // Will be populated via fetch
             litellm: [],
             custom: []
         };
@@ -167,7 +191,7 @@
             openai: { type: 'openai', name: 'OpenAI', model: 'gpt-4o', api_key: '', api_base: '', openai_compatible: false, max_tokens: 8000, rpm: 3500, tpm: 90000 },
             google: { type: 'google', name: 'Google AI', model: 'gemini-2.0-flash', api_key: '', api_base: '', openai_compatible: false, max_tokens: 8192, rpm: 60, tpm: 100000 },
             anthropic: { type: 'anthropic', name: 'Anthropic', model: 'claude-3-5-sonnet-20241022', api_key: '', api_base: '', openai_compatible: false, max_tokens: 8192, rpm: 50, tpm: 100000 },
-            proxy: { type: 'proxy', name: 'Proxypal', model: 'gemini-3-pro-preview', api_base: 'http://127.0.0.1:8317', api_key: 'proxypal-local', openai_compatible: true, max_tokens: 8000, rpm: 100, tpm: 100000 },
+            proxy: { type: 'proxy', name: 'Proxypal', model: '', api_base: 'http://127.0.0.1:8317', api_key: 'proxypal-local', openai_compatible: true, max_tokens: 8000, rpm: 100, tpm: 100000 },
             litellm: { type: 'litellm', name: 'LiteLLM', model: '', api_base: 'http://localhost:4000', api_key: '', openai_compatible: false, max_tokens: 8000, rpm: 100, tpm: 100000 },
             custom: { type: 'custom', name: 'Custom', model: '', api_base: '', api_key: '', openai_compatible: true, max_tokens: 8000, rpm: 100, tpm: 100000 }
         };
@@ -241,7 +265,10 @@
             document.getElementById('form-tpm').value = p.tpm;
 
             // Update model suggestions
-            updateModelSuggestions(p.type);
+            renderModelDropdown(p.type);
+
+            // Hide dropdown initially when switching
+            hideDropdown();
 
             // Show/hide OpenAI compatible toggle
             const compatField = document.getElementById('openai-compatible-field');
@@ -255,6 +282,13 @@
             const fetchBtn = document.getElementById('fetch-models-btn');
             if (p.type === 'proxy' || p.type === 'custom' || p.type === 'litellm' || p.openai_compatible) {
                 fetchBtn.classList.remove('hidden');
+
+                // Auto fetch for proxypal if model list is empty or always auto fetch?
+                // The user requested auto load the list.
+                if (p.type === 'proxy') {
+                    // Slight delay to allow UI to render first
+                    setTimeout(() => fetchModels(false), 100);
+                }
             } else {
                 fetchBtn.classList.add('hidden');
             }
@@ -263,12 +297,53 @@
             document.getElementById('test-result').textContent = '';
         }
 
-        // Update model suggestions datalist
-        function updateModelSuggestions(type) {
-            const datalist = document.getElementById('model-suggestions');
+        // Render model dropdown
+        function renderModelDropdown(type) {
+            const dropdown = document.getElementById('model-list-dropdown');
             const models = MODELS[type] || [];
-            datalist.innerHTML = models.map(m => `<option value="${m}">`).join('');
+
+            if (models.length === 0) {
+                dropdown.innerHTML = '<div class="px-4 py-2 text-gray-400 text-sm italic">No models found. Click Refresh to load.</div>';
+            } else {
+                dropdown.innerHTML = models.map(m => `
+                    <div onclick="selectModel('${m}')" class="px-4 py-2 hover:bg-gray-600 cursor-pointer text-sm border-b border-gray-650 last:border-0 flex justify-between items-center group">
+                        <span>${m}</span>
+                        <span class="text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                    </div>
+                `).join('');
+            }
         }
+
+        function selectModel(modelName) {
+            const input = document.getElementById('form-model');
+            input.value = modelName;
+            syncFormToState();
+            hideDropdown();
+        }
+
+        function showDropdown() {
+            document.getElementById('model-list-dropdown').classList.remove('hidden');
+            isDropdownVisible = true;
+        }
+
+        function hideDropdown() {
+            // Delay to allow click events on items to fire
+            setTimeout(() => {
+                document.getElementById('model-list-dropdown').classList.add('hidden');
+                isDropdownVisible = false;
+            }, 200);
+        }
+
+        // Add input focus listeners for dropdown
+        const modelInput = document.getElementById('form-model');
+        modelInput.addEventListener('focus', () => {
+            // Re-render based on current provider type in case it changed
+            if (selectedIndex >= 0) {
+                renderModelDropdown(providers[selectedIndex].type);
+                showDropdown();
+            }
+        });
+        modelInput.addEventListener('blur', hideDropdown);
 
         // Add new provider
         function addProvider(type) {
@@ -310,9 +385,14 @@
 
         // Add input listeners for live sync
         document.querySelectorAll('#provider-form input').forEach(input => {
+            if (input.id === 'form-model') return; // Handled separately due to dropdown logic
             input.addEventListener('input', syncFormToState);
             input.addEventListener('change', syncFormToState);
         });
+
+        // Handle model input specifically to not break sync
+        document.getElementById('form-model').addEventListener('input', syncFormToState);
+
 
         // Drag and drop handlers
         let draggedIndex = null;
@@ -391,7 +471,7 @@
         }
 
         // Fetch models
-        async function fetchModels() {
+        async function fetchModels(manual = false) {
             if (selectedIndex < 0) return;
 
             syncFormToState();
@@ -399,8 +479,20 @@
             const btn = document.getElementById('fetch-models-btn');
             const originalText = btn.textContent;
 
-            btn.disabled = true;
-            btn.textContent = '...';
+            // Only show loading state if manual trigger or if list is empty
+            const shouldShowLoading = manual || (MODELS[provider.type] && MODELS[provider.type].length === 0);
+
+            if (shouldShowLoading) {
+                btn.disabled = true;
+                btn.textContent = '...';
+            }
+
+            const dropdown = document.getElementById('model-list-dropdown');
+            if (manual) {
+                // Force show dropdown and loading state in it
+                dropdown.classList.remove('hidden');
+                dropdown.innerHTML = '<div class="px-4 py-2 text-gray-400 text-sm italic">Loading models...</div>';
+            }
 
             try {
                 const res = await fetch('/api/fetch-models', {
@@ -411,29 +503,47 @@
                 const data = await res.json();
 
                 if (data.success && data.models.length > 0) {
-                    // Update current provider's model list cache (optional, effectively just updating UI for now)
-                    // If type is proxy, update global cache or just suggestions
+
                     if (provider.type === 'proxy') {
                         MODELS.proxy = data.models;
+                    } else if (provider.type === 'custom' || provider.type === 'litellm') {
+                        // For custom types, we might want to cache or just update the dropdown
+                        MODELS[provider.type] = data.models;
                     }
 
-                    // Update datalist
-                    const datalist = document.getElementById('model-suggestions');
-                    datalist.innerHTML = data.models.map(m => `<option value="${m}">`).join('');
+                    // Render updated list
+                    renderModelDropdown(provider.type);
+
+                    // If autotriggered (Proxypal selection), show the dropdown to the user so they can see it
+                    if (!manual && provider.type === 'proxy') {
+                        showDropdown();
+                    }
 
                     // Visual feedback
-                    btn.textContent = '✓';
-                    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+                    if (shouldShowLoading) {
+                        btn.textContent = '✓';
+                        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+                    }
                 } else {
-                    alert('Failed to fetch models: ' + (data.message || 'Unknown error'));
-                    btn.textContent = '✗';
-                    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+                    console.warn('Fetched 0 models or failed', data);
+                    // If manual, show alert
+                    if (manual) {
+                        alert('Failed to fetch models: ' + (data.message || 'Unknown error'));
+                        btn.textContent = '✗';
+                        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+                        renderModelDropdown(provider.type); // Re-render empty state
+                    } else {
+                        // Silent fail for auto-fetch, just ensure dropdown says "No models found" if user looks
+                        renderModelDropdown(provider.type);
+                    }
                 }
             } catch (e) {
                 console.error(e);
-                alert('Connection error fetching models');
-                btn.textContent = '✗';
-                setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+                if (manual) {
+                    alert('Connection error fetching models');
+                    btn.textContent = '✗';
+                    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1000);
+                }
             }
         }
 

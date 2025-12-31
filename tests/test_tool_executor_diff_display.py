@@ -224,7 +224,7 @@ async def test_diff_display_handles_special_characters(
         ]
 
         # Execute
-        results = await tool_executor.execute_tools(tool_calls, mock_ui_renderer)
+        _ = await tool_executor.execute_tools(tool_calls, mock_ui_renderer)
 
         # Get output
         output = console_output.getvalue()

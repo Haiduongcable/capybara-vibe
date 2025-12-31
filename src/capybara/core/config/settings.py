@@ -1,11 +1,11 @@
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from capybara.tools.base import ToolSecurityConfig, ToolPermission
+from capybara.tools.base import ToolPermission, ToolSecurityConfig  # noqa: F401
+
 
 class ToolsConfig(BaseModel):
     """Tools configuration."""
@@ -14,7 +14,7 @@ class ToolsConfig(BaseModel):
     bash_timeout: int = 120
     filesystem_enabled: bool = True
     allowed_paths: list[str] = Field(default_factory=lambda: ["."])
-    
+
     # Permission settings
     security: dict[str, ToolSecurityConfig] = Field(default_factory=dict)
 
@@ -24,8 +24,8 @@ class ProviderConfig(BaseModel):
 
     name: str = "default"
     model: str = "gpt-4o"
-    api_key: Optional[str] = None
-    api_base: Optional[str] = None
+    api_key: str | None = None
+    api_base: str | None = None
     rpm: int = 3500  # Requests per minute
     tpm: int = 90000  # Tokens per minute
     max_tokens: int = 8000  # Maximum tokens per response
@@ -34,11 +34,9 @@ class ProviderConfig(BaseModel):
 class MemoryConfig(BaseModel):
     """Memory management configuration."""
 
-    max_messages: Optional[int] = None
+    max_messages: int | None = None
     max_tokens: int = 100_000
     persist: bool = True
-
-
 
 
 class MCPServerConfig(BaseModel):

@@ -1,14 +1,13 @@
 """Error handling for sub-agent execution."""
 
 import time
-import asyncio
 
 from capybara.core.agent import Agent
 from capybara.core.logging import log_delegation
 from capybara.memory.storage import ConversationStorage
 from capybara.tools.builtin.delegation.failure_analysis import (
+    analyze_exception_failure,
     analyze_timeout_failure,
-    analyze_exception_failure
 )
 
 
@@ -20,7 +19,7 @@ async def handle_timeout_error(
     storage: ConversationStorage,
     start_time: float,
     timeout: float,
-    task: str
+    task: str,
 ) -> str:
     """Handle sub-agent timeout error with logging and failure report."""
 
@@ -35,7 +34,7 @@ async def handle_timeout_error(
         session_id=child_session_id,
         duration=time.time() - start_time,
         timeout=timeout,
-        prompt=task
+        prompt=task,
     )
 
     # Log event
@@ -45,8 +44,8 @@ async def handle_timeout_error(
         metadata={
             "child_session_id": child_session_id,
             "duration": failure.duration,
-            "category": failure.category.value
-        }
+            "category": failure.category.value,
+        },
     )
 
     # Log to session logger
@@ -56,7 +55,7 @@ async def handle_timeout_error(
             action="timeout",
             parent_session=parent_session_id,
             child_session=child_session_id,
-            duration=f"{failure.duration:.2f}s"
+            duration=f"{failure.duration:.2f}s",
         )
 
     return failure.to_context_string()
@@ -70,7 +69,7 @@ async def handle_exception_error(
     parent_session_id: str,
     storage: ConversationStorage,
     start_time: float,
-    task: str
+    task: str,
 ) -> str:
     """Handle sub-agent exception error with logging and failure report."""
 
@@ -88,7 +87,7 @@ async def handle_exception_error(
         child_agent=child_agent,
         session_id=child_session_id,
         duration=time.time() - start_time,
-        prompt=task
+        prompt=task,
     )
 
     # Log event
@@ -99,8 +98,8 @@ async def handle_exception_error(
             "child_session_id": child_session_id,
             "error": str(exception),
             "duration": failure.duration,
-            "category": failure.category.value
-        }
+            "category": failure.category.value,
+        },
     )
 
     # Log to session logger
@@ -111,7 +110,7 @@ async def handle_exception_error(
             parent_session=parent_session_id,
             child_session=child_session_id,
             duration=f"{failure.duration:.2f}s",
-            error=str(exception)
+            error=str(exception),
         )
 
     # Log error
@@ -119,7 +118,7 @@ async def handle_exception_error(
         error=exception,
         context=f"sub_agent:child={child_session_id[:8]}",
         session_id=parent_session_id,
-        agent_mode="parent"
+        agent_mode="parent",
     )
 
     return failure.to_context_string()

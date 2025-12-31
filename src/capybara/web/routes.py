@@ -77,6 +77,7 @@ class FetchModelsResponse(BaseModel):
     models: list[str] = []
     message: str = ""
 
+
 @router.get("/config", response_model=ConfigResponse)
 async def get_config():
     """Get current configuration for UI."""
@@ -117,22 +118,26 @@ async def test_connection(request: TestConnectionRequest):
 
     try:
         provider = transform_provider_for_yaml(request.provider.model_dump())
-        
+
         import litellm
 
         # Ensure we are using the model name exactly as stored in config (which now enforces openai/ prefix)
         # But if the UI passed it without prefix (because we stripped it for display), we re-add it here for the test
         model_to_test = provider.model
         if request.provider.openai_compatible and not model_to_test.startswith("openai/"):
-             model_to_test = f"openai/{model_to_test}"
+            model_to_test = f"openai/{model_to_test}"
 
         # LiteLLM needs the api_base to usually end in /v1 for "openai" provider logic if using standard client
-        # But if user config doesn't have it, we might get 404. 
+        # But if user config doesn't have it, we might get 404.
         # However, checking user curl: http://localhost:8317/v1/chat/completions implies base is .../v1
         # If config is http://127.0.0.1:8317, we might need to append /v1 for LiteLLM to resolve correctly.
         api_base_to_use = provider.api_base
-        if request.provider.openai_compatible and api_base_to_use and not api_base_to_use.endswith("/v1"):
-             api_base_to_use = f"{api_base_to_use}/v1"
+        if (
+            request.provider.openai_compatible
+            and api_base_to_use
+            and not api_base_to_use.endswith("/v1")
+        ):
+            api_base_to_use = f"{api_base_to_use}/v1"
 
         response = await litellm.acompletion(
             model=model_to_test,
@@ -148,7 +153,9 @@ async def test_connection(request: TestConnectionRequest):
         error_msg = str(e)
         # Check for common error patterns
         if "auth" in error_msg.lower() or "api key" in error_msg.lower():
-            return TestConnectionResponse(success=False, message="Authentication failed - check API key")
+            return TestConnectionResponse(
+                success=False, message="Authentication failed - check API key"
+            )
         if "timeout" in error_msg.lower():
             return TestConnectionResponse(success=False, message="Connection timed out")
         logger.warning(f"Test connection failed for {request.provider.name}: {e}")
@@ -159,10 +166,10 @@ async def test_connection(request: TestConnectionRequest):
 async def fetch_models(request: FetchModelsRequest):
     """Fetch available models from provider."""
     import httpx
-    
+
     provider = request.provider
     if not provider.api_base:
-         return FetchModelsResponse(success=False, message="API Base URL is required")
+        return FetchModelsResponse(success=False, message="API Base URL is required")
 
     api_base = provider.api_base.rstrip("/")
     url = f"{api_base}/v1/models"
@@ -175,17 +182,18 @@ async def fetch_models(request: FetchModelsRequest):
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
-            
+
             # Parse OpenAI format {"data": [{"id": "..."}, ...]}
             models = []
             if "data" in data and isinstance(data["data"], list):
                 models = [m["id"] for m in data["data"] if "id" in m]
-                
+
             return FetchModelsResponse(success=True, models=sorted(models))
-            
+
     except Exception as e:
         logger.error(f"Failed to fetch models: {e}")
         return FetchModelsResponse(success=False, message=str(e))
+
 
 @router.post("/shutdown")
 async def shutdown():

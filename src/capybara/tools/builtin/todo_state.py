@@ -62,9 +62,8 @@ class TodoStateManager:
                 # Don't let observer errors break state management
                 # Log error but continue notifying other observers
                 import logging
-                logging.getLogger(__name__).error(
-                    f"Error in todo state observer: {e}"
-                )
+
+                logging.getLogger(__name__).error(f"Error in todo state observer: {e}")
 
 
 # Global singleton instance

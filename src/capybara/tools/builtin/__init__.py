@@ -35,13 +35,15 @@ def register_builtin_tools(
     # Only register sub-agent if dependencies provided
     if all([parent_session_id, parent_agent, session_manager, storage]):
         from capybara.tools.builtin.delegation import register_sub_agent_tool
-        register_sub_agent_tool(
-            registry,
-            parent_session_id,
-            parent_agent,  # type: ignore
-            session_manager,  # type: ignore
-            storage  # type: ignore
-        )
+
+        if parent_session_id:
+            register_sub_agent_tool(
+                registry,
+                parent_session_id,
+                parent_agent,  # type: ignore
+                session_manager,  # type: ignore
+                storage,  # type: ignore
+            )
 
 
 # Create and populate the default registry (without delegation)

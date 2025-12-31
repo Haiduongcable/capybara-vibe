@@ -1,6 +1,9 @@
 """Tests for conversation memory."""
 
+from typing import Any
+
 import pytest
+
 from capybara.memory.window import ConversationMemory, MemoryConfig
 
 
@@ -59,7 +62,9 @@ class TestConversationMemory:
 
         # Add messages until we exceed limit
         for i in range(10):
-            memory.add({"role": "user", "content": f"This is message number {i} with some content."})
+            memory.add(
+                {"role": "user", "content": f"This is message number {i} with some content."}
+            )
 
         # Should have trimmed old messages
         assert memory.get_token_count() <= 100
@@ -75,17 +80,18 @@ class TestConversationMemory:
     def test_tool_call_token_counting(self) -> None:
         """Test token counting with tool calls."""
         memory = ConversationMemory()
-        memory.add({
-            "role": "assistant",
-            "tool_calls": [{
-                "id": "call_1",
-                "type": "function",
-                "function": {
-                    "name": "read_file",
-                    "arguments": '{"path": "/test.txt"}'
-                }
-            }]
-        })
+        memory.add(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "read_file", "arguments": '{"path": "/test.txt"}'},
+                    }
+                ],
+            }
+        )
 
         # Should count tool call tokens
         assert memory.get_token_count() > 0
@@ -99,28 +105,30 @@ class TestConversationMemory:
         memory.add({"role": "user", "content": "Read a file"})
 
         # Add assistant with tool_calls
-        memory.add({
-            "role": "assistant",
-            "tool_calls": [{
-                "id": "call_1",
-                "type": "function",
-                "function": {
-                    "name": "read_file",
-                    "arguments": '{"path": "/test.txt"}'
-                }
-            }]
-        })
+        memory.add(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "read_file", "arguments": '{"path": "/test.txt"}'},
+                    }
+                ],
+            }
+        )
 
         # Add tool result
-        memory.add({
-            "role": "tool",
-            "tool_call_id": "call_1",
-            "content": "File contents here"
-        })
+        memory.add({"role": "tool", "tool_call_id": "call_1", "content": "File contents here"})
 
         # Add more messages to trigger trimming
         for i in range(10):
-            memory.add({"role": "user", "content": f"Another message {i} with enough content to trigger token limit trimming eventually."})
+            memory.add(
+                {
+                    "role": "user",
+                    "content": f"Another message {i} with enough content to trigger token limit trimming eventually.",
+                }
+            )
 
         # Verify no orphaned tool messages exist
         messages = memory.get_messages()
@@ -134,7 +142,9 @@ class TestConversationMemory:
                     if messages[j].get("role") == "assistant" and messages[j].get("tool_calls"):
                         found_parent = True
                         break
-                assert found_parent, f"Tool message at index {i} has no parent assistant with tool_calls"
+                assert found_parent, (
+                    f"Tool message at index {i} has no parent assistant with tool_calls"
+                )
 
     def test_trimming_preserves_valid_sequence(self) -> None:
         """Test that trimming maintains valid message sequences."""
@@ -143,26 +153,34 @@ class TestConversationMemory:
 
         # Create a sequence: user → assistant with tool_calls → tool results
         memory.add({"role": "user", "content": "Message 1"})
-        memory.add({
-            "role": "assistant",
-            "tool_calls": [{
-                "id": "call_1",
-                "type": "function",
-                "function": {"name": "test", "arguments": "{}"}
-            }]
-        })
+        memory.add(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "test", "arguments": "{}"},
+                    }
+                ],
+            }
+        )
         memory.add({"role": "tool", "tool_call_id": "call_1", "content": "Result 1"})
 
         # Add another complete sequence
         memory.add({"role": "user", "content": "Message 2"})
-        memory.add({
-            "role": "assistant",
-            "tool_calls": [{
-                "id": "call_2",
-                "type": "function",
-                "function": {"name": "test", "arguments": "{}"}
-            }]
-        })
+        memory.add(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_2",
+                        "type": "function",
+                        "function": {"name": "test", "arguments": "{}"},
+                    }
+                ],
+            }
+        )
         memory.add({"role": "tool", "tool_call_id": "call_2", "content": "Result 2"})
 
         # Add more messages to force trimming
@@ -190,8 +208,9 @@ class TestConversationMemory:
                 # For this test, we expect complete sequences if they're present
                 if found_results:
                     # If we found some results, we should find all of them
-                    assert found_results == tool_call_ids, \
+                    assert found_results == tool_call_ids, (
                         f"Incomplete tool results: expected {tool_call_ids}, found {found_results}"
+                    )
 
     def test_find_removable_messages(self) -> None:
         """Test _find_removable_messages helper."""
@@ -203,27 +222,41 @@ class TestConversationMemory:
 
         # Test 2: Assistant with tool_calls followed by tool results
         memory.clear()
-        memory.add({
-            "role": "assistant",
-            "tool_calls": [{
-                "id": "call_1",
-                "type": "function",
-                "function": {"name": "test", "arguments": "{}"}
-            }]
-        })
+        memory.add(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "test", "arguments": "{}"},
+                    }
+                ],
+            }
+        )
         memory.add({"role": "tool", "tool_call_id": "call_1", "content": "Result"})
         # Should remove both assistant and tool message
         assert memory._find_removable_messages() == 2
 
         # Test 3: Assistant with multiple tool results
         memory.clear()
-        memory.add({
-            "role": "assistant",
-            "tool_calls": [
-                {"id": "call_1", "type": "function", "function": {"name": "test1", "arguments": "{}"}},
-                {"id": "call_2", "type": "function", "function": {"name": "test2", "arguments": "{}"}}
-            ]
-        })
+        memory.add(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "test1", "arguments": "{}"},
+                    },
+                    {
+                        "id": "call_2",
+                        "type": "function",
+                        "function": {"name": "test2", "arguments": "{}"},
+                    },
+                ],
+            }
+        )
         memory.add({"role": "tool", "tool_call_id": "call_1", "content": "Result 1"})
         memory.add({"role": "tool", "tool_call_id": "call_2", "content": "Result 2"})
         # Should remove assistant + 2 tool messages
@@ -255,24 +288,19 @@ class TestConversationMemory:
         memory = ConversationMemory(config=config)
 
         # Create messages that would cause issues if added one by one
-        messages_to_load = [
+        messages_to_load: list[dict[str, Any]] = [
             {"role": "user", "content": "Read a file"},
             {
                 "role": "assistant",
-                "tool_calls": [{
-                    "id": "call_1",
-                    "type": "function",
-                    "function": {
-                        "name": "read_file",
-                        "arguments": '{"path": "/test.txt"}'
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "read_file", "arguments": '{"path": "/test.txt"}'},
                     }
-                }]
+                ],
             },
-            {
-                "role": "tool",
-                "tool_call_id": "call_1",
-                "content": "File contents here"
-            },
+            {"role": "tool", "tool_call_id": "call_1", "content": "File contents here"},
             {"role": "user", "content": "Now do something else with a very long message " * 20},
         ]
 
@@ -292,15 +320,17 @@ class TestConversationMemory:
         memory = ConversationMemory(config=config)
 
         # Simulate a stored session with tool calls
-        stored_messages = [
+        stored_messages: list[dict[str, Any]] = [
             {"role": "user", "content": "Old message 1"},
             {
                 "role": "assistant",
-                "tool_calls": [{
-                    "id": "call_old",
-                    "type": "function",
-                    "function": {"name": "read_file", "arguments": '{"path": "old.txt"}'}
-                }]
+                "tool_calls": [
+                    {
+                        "id": "call_old",
+                        "type": "function",
+                        "function": {"name": "read_file", "arguments": '{"path": "old.txt"}'},
+                    }
+                ],
             },
             {"role": "tool", "tool_call_id": "call_old", "content": "Old file contents"},
             {"role": "user", "content": "Recent message " * 30},  # Long message to trigger trim
@@ -314,8 +344,9 @@ class TestConversationMemory:
 
         # First message should NOT be a tool message
         if messages:
-            assert messages[0].get("role") != "tool", \
+            assert messages[0].get("role") != "tool", (
                 "First message is orphaned tool message - this is the bug we're fixing!"
+            )
 
     def test_trim_removes_orphaned_tools_after_token_limit(self) -> None:
         """Test that trimming by token limit properly removes orphaned tool messages."""
@@ -324,10 +355,18 @@ class TestConversationMemory:
 
         # Add a sequence that will be trimmed
         memory.add({"role": "user", "content": "First"})
-        memory.add({
-            "role": "assistant",
-            "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "test", "arguments": "{}"}}]
-        })
+        memory.add(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "test", "arguments": "{}"},
+                    }
+                ],
+            }
+        )
         memory.add({"role": "tool", "tool_call_id": "call_1", "content": "Result"})
 
         # Add a very long message to force trimming
@@ -345,18 +384,38 @@ class TestConversationMemory:
 
         # Simulate the bug scenario: aggressive trimming leaves only tool messages
         memory.add({"role": "user", "content": "Read files"})
-        memory.add({
-            "role": "assistant",
-            "tool_calls": [
-                {"id": "call_1", "type": "function", "function": {"name": "read_file", "arguments": '{"path": "file1.txt"}'}},
-                {"id": "call_2", "type": "function", "function": {"name": "read_file", "arguments": '{"path": "file2.txt"}'}},
-                {"id": "call_3", "type": "function", "function": {"name": "read_file", "arguments": '{"path": "file3.txt"}'}},
-            ]
-        })
+        memory.add(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "read_file", "arguments": '{"path": "file1.txt"}'},
+                    },
+                    {
+                        "id": "call_2",
+                        "type": "function",
+                        "function": {"name": "read_file", "arguments": '{"path": "file2.txt"}'},
+                    },
+                    {
+                        "id": "call_3",
+                        "type": "function",
+                        "function": {"name": "read_file", "arguments": '{"path": "file3.txt"}'},
+                    },
+                ],
+            }
+        )
         # Add large tool results to trigger aggressive trimming
-        memory.add({"role": "tool", "tool_call_id": "call_1", "content": "Large file content " * 100})
-        memory.add({"role": "tool", "tool_call_id": "call_2", "content": "Large file content " * 100})
-        memory.add({"role": "tool", "tool_call_id": "call_3", "content": "Large file content " * 100})
+        memory.add(
+            {"role": "tool", "tool_call_id": "call_1", "content": "Large file content " * 100}
+        )
+        memory.add(
+            {"role": "tool", "tool_call_id": "call_2", "content": "Large file content " * 100}
+        )
+        memory.add(
+            {"role": "tool", "tool_call_id": "call_3", "content": "Large file content " * 100}
+        )
 
         # Get messages - safety valve should keep at least 1
         messages = memory.get_messages()
@@ -391,6 +450,7 @@ class TestConversationMemory:
     def test_logging_during_trimming(self, caplog) -> None:
         """Test that trimming operations are logged."""
         import logging
+
         caplog.set_level(logging.INFO, logger="capybara.memory")
 
         config = MemoryConfig(max_tokens=200)

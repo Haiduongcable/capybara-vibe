@@ -1,6 +1,7 @@
 """Streaming response handling for agent completions."""
 
-from typing import Any, Optional
+import re
+from typing import Any
 
 from rich.console import Console, Group
 from rich.live import Live
@@ -9,28 +10,30 @@ from rich.spinner import Spinner
 from rich.text import Text
 
 from capybara.providers.router import ProviderRouter
-import re
+
 
 def _clean_content(content: str) -> str:
     """Remove tool call echoes from the model output.
-    
+
     Some models echo the tool call as text before executing it, using multiline formatting.
     This regex uses DOTALL (?s) to match across newlines, stripping the call.
     """
     # Whitelist of tools to detect
-    tool_names = r"todo|read_file|write_file|edit_file|delete_file|list_directory|glob|grep|bash|which"
-    
+    tool_names = (
+        r"todo|read_file|write_file|edit_file|delete_file|list_directory|glob|grep|bash|which"
+    )
+
     # Match > toolname(...) across newlines, non-greedy to stop at first closing paren
     # Note: Does not handle nested parenthesis perfectly, but handles standard repr() output well.
-    p = r'(?s)> \s*(?:' + tool_names + r')\s*\(.*?\)'
-    return re.sub(p, '', content)
+    p = r"(?s)> \s*(?:" + tool_names + r")\s*\(.*?\)"
+    return re.sub(p, "", content)
 
 
 async def stream_completion(
     provider: ProviderRouter,
     messages: list[dict[str, Any]],
     model: str,
-    tools: Optional[list[dict[str, Any]]],
+    tools: list[dict[str, Any]] | None,
     timeout: float,
     console: Console,
 ) -> dict[str, Any]:
@@ -51,7 +54,7 @@ async def stream_completion(
     collected_tool_calls: dict[int, dict[str, Any]] = {}
 
     spinner = Spinner("dots", text="Thinking...", style="cyan")
-    
+
     with Live(renderable=spinner, console=console, refresh_per_second=10, transient=True) as live:
         async for chunk in provider.complete(
             messages=messages,
@@ -71,10 +74,7 @@ async def stream_completion(
                 # Show content + spinner at the bottom while streaming
                 display_content = _clean_content("".join(collected_content))
                 if display_content.strip():
-                     live.update(Group(
-                        Markdown(display_content),
-                        Spinner("dots", style="cyan")
-                    ))
+                    live.update(Group(Markdown(display_content), Spinner("dots", style="cyan")))
                 else:
                     live.update(Spinner("dots", style="cyan"))
 
@@ -85,16 +85,20 @@ async def stream_completion(
                 # Ensure we still show the spinner with context
                 display_content = _clean_content("".join(collected_content))
                 if display_content.strip():
-                     live.update(Group(
-                        Markdown(display_content),
-                        Text("🔨 Preparing tool execution...", style="dim cyan"),
-                        Spinner("dots", style="cyan")
-                    ))
+                    live.update(
+                        Group(
+                            Markdown(display_content),
+                            Text("🔨 Preparing tool execution...", style="dim cyan"),
+                            Spinner("dots", style="cyan"),
+                        )
+                    )
                 else:
-                    live.update(Group(
-                        Text("🔨 Preparing tool execution...", style="dim cyan"),
-                        Spinner("dots", style="cyan")
-                    ))
+                    live.update(
+                        Group(
+                            Text("🔨 Preparing tool execution...", style="dim cyan"),
+                            Spinner("dots", style="cyan"),
+                        )
+                    )
 
     # Print final content
     full_content = "".join(collected_content)
@@ -144,7 +148,7 @@ async def non_streaming_completion(
     provider: ProviderRouter,
     messages: list[dict[str, Any]],
     model: str,
-    tools: Optional[list[dict[str, Any]]],
+    tools: list[dict[str, Any]] | None,
     timeout: float,
     console: Console,
 ) -> dict[str, Any]:

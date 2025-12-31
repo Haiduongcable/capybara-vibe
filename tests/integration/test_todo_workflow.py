@@ -96,23 +96,29 @@ def test_panel_persists_across_updates():
     panel = PersistentTodoPanel(visible=True)
 
     # Initial todos
-    todo_state.update_todos([
-        TodoItem(id="1", content="Task 1", status=TodoStatus.PENDING),
-    ])
+    todo_state.update_todos(
+        [
+            TodoItem(id="1", content="Task 1", status=TodoStatus.PENDING),
+        ]
+    )
     assert len(panel.todos) == 1
 
     # Add more todos
-    todo_state.update_todos([
-        TodoItem(id="1", content="Task 1", status=TodoStatus.PENDING),
-        TodoItem(id="2", content="Task 2", status=TodoStatus.PENDING),
-        TodoItem(id="3", content="Task 3", status=TodoStatus.PENDING),
-    ])
+    todo_state.update_todos(
+        [
+            TodoItem(id="1", content="Task 1", status=TodoStatus.PENDING),
+            TodoItem(id="2", content="Task 2", status=TodoStatus.PENDING),
+            TodoItem(id="3", content="Task 3", status=TodoStatus.PENDING),
+        ]
+    )
     assert len(panel.todos) == 3
 
     # Remove todos
-    todo_state.update_todos([
-        TodoItem(id="1", content="Task 1", status=TodoStatus.COMPLETED),
-    ])
+    todo_state.update_todos(
+        [
+            TodoItem(id="1", content="Task 1", status=TodoStatus.COMPLETED),
+        ]
+    )
     assert len(panel.todos) == 1
     assert panel.todos[0].status == TodoStatus.COMPLETED
 
@@ -124,21 +130,27 @@ def test_multiple_status_transitions():
     panel = PersistentTodoPanel(visible=True)
 
     # Start with pending
-    todo_state.update_todos([
-        TodoItem(id="1", content="Task 1", status=TodoStatus.PENDING),
-    ])
+    todo_state.update_todos(
+        [
+            TodoItem(id="1", content="Task 1", status=TodoStatus.PENDING),
+        ]
+    )
     assert panel.todos[0].status == TodoStatus.PENDING
 
     # Move to in_progress
-    todo_state.update_todos([
-        TodoItem(id="1", content="Task 1", status=TodoStatus.IN_PROGRESS),
-    ])
+    todo_state.update_todos(
+        [
+            TodoItem(id="1", content="Task 1", status=TodoStatus.IN_PROGRESS),
+        ]
+    )
     assert panel.todos[0].status == TodoStatus.IN_PROGRESS
 
     # Move to completed
-    todo_state.update_todos([
-        TodoItem(id="1", content="Task 1", status=TodoStatus.COMPLETED),
-    ])
+    todo_state.update_todos(
+        [
+            TodoItem(id="1", content="Task 1", status=TodoStatus.COMPLETED),
+        ]
+    )
     assert panel.todos[0].status == TodoStatus.COMPLETED
 
     panel.cleanup()

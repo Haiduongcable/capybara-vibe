@@ -127,8 +127,14 @@ Notes:
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Absolute file path"},
-                "old_string": {"type": "string", "description": "Exact text to find (must exist in file)"},
-                "new_string": {"type": "string", "description": "Replacement text (must differ from old_string)"},
+                "old_string": {
+                    "type": "string",
+                    "description": "Exact text to find (must exist in file)",
+                },
+                "new_string": {
+                    "type": "string",
+                    "description": "Replacement text (must differ from old_string)",
+                },
                 "replace_all": {
                     "type": "boolean",
                     "description": "Replace all occurrences (default: false, requires unique old_string)",

@@ -11,14 +11,14 @@ from capybara.core.agent.ui_renderer import AgentUIRenderer
 from capybara.core.config.settings import ToolsConfig
 from capybara.core.delegation.event_bus import Event, EventType, get_event_bus
 from capybara.core.execution.execution_log import ExecutionLog
+from capybara.core.execution.streaming import non_streaming_completion, stream_completion
+from capybara.core.execution.tool_executor import ToolExecutor
 from capybara.core.logging import (
     SessionLoggerAdapter,
     get_logger,
     get_session_log_manager,
     log_error,
 )
-from capybara.core.execution.streaming import non_streaming_completion, stream_completion
-from capybara.core.execution.tool_executor import ToolExecutor
 from capybara.memory.window import ConversationMemory
 from capybara.providers.router import ProviderRouter
 from capybara.tools.base import AgentMode
@@ -187,7 +187,9 @@ class Agent:
                 if not tool_calls:
                     final_response = str(response.get("content", ""))
                     if self.session_logger:
-                        self.session_logger.info("Agent completed successfully (no more tool calls)")
+                        self.session_logger.info(
+                            "Agent completed successfully (no more tool calls)"
+                        )
                     else:
                         logger.info("Agent completed successfully (no more tool calls)")
 
@@ -265,7 +267,7 @@ class Agent:
         messages = self.memory.get_messages()
 
         # Log memory state before API call if provider has logger
-        if hasattr(self.provider, 'api_logger') and self.provider.api_logger:
+        if hasattr(self.provider, "api_logger") and self.provider.api_logger:
             self.provider.api_logger.log_memory_state(
                 messages=messages,
                 token_count=self.memory.get_token_count(),

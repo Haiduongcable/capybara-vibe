@@ -42,3 +42,7 @@ Requires-Dist: mypy>=1.5.0; extra == "dev"
 Requires-Dist: ruff>=0.1.0; extra == "dev"
 Requires-Dist: types-PyYAML>=6.0.0; extra == "dev"
 Requires-Dist: types-aiofiles>=23.0.0; extra == "dev"
+
+# Capybara Vibe Coding
+
+Async-first AI-powered CLI coding assistant implementing the ReAct agent pattern.

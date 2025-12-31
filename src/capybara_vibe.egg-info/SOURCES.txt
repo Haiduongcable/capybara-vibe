@@ -69,10 +69,10 @@ src/capybara/web/__init__.py
 src/capybara/web/routes.py
 src/capybara/web/server.py
 src/capybara/web/transformers.py
-src/capybara_vibe_coding.egg-info/PKG-INFO
-src/capybara_vibe_coding.egg-info/SOURCES.txt
-src/capybara_vibe_coding.egg-info/dependency_links.txt
-src/capybara_vibe_coding.egg-info/entry_points.txt
-src/capybara_vibe_coding.egg-info/requires.txt
-src/capybara_vibe_coding.egg-info/top_level.txt
+src/capybara_vibe.egg-info/PKG-INFO
+src/capybara_vibe.egg-info/SOURCES.txt
+src/capybara_vibe.egg-info/dependency_links.txt
+src/capybara_vibe.egg-info/entry_points.txt
+src/capybara_vibe.egg-info/requires.txt
+src/capybara_vibe.egg-info/top_level.txt
 tests/test_placeholder.py

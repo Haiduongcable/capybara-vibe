@@ -11,17 +11,32 @@ Capybara Vibe is a powerful CLI tool designed to assist developers with coding t
 
 ## VISUAL OVERVIEW
 
-### CLI Interface
-![CLI UI](assets/capybara-cli.png)
-
-### Planning Mode
-![Todo Planning](assets/capybara-todo.png)
-
-### Multi-Agent Architecture
-![MultiAgent](assets/capyabara-multiagent.png)
-
-### Multi-Provider Selection
-![MultiProvider](assets/capybara-multiprovider.png)
+<table border="1" cellspacing="0" cellpadding="10" width="100%">
+  <tr>
+    <td align="center" width="50%" style="padding: 10px;">
+      <img src="assets/capybara-cli.png" alt="CLI UI" width="100%" />
+      <br />
+      <b>CLI Interface</b>
+    </td>
+    <td align="center" width="50%" style="padding: 10px;">
+      <img src="assets/capybara-todo.png" alt="Todo Planning" width="100%" />
+      <br />
+      <b>Planning Mode</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%" style="padding: 10px;">
+      <img src="assets/capyabara-multiagent.png" alt="MultiAgent" width="100%" />
+      <br />
+      <b>Multi-Agent Architecture</b>
+    </td>
+    <td align="center" width="50%" style="padding: 10px;">
+      <img src="assets/capybara-multiprovider.png" alt="MultiProvider" width="100%" />
+      <br />
+      <b>Multi-Provider Selection</b>
+    </td>
+  </tr>
+</table>
 
 ## KEY FEATURES
 

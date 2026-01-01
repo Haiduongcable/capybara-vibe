@@ -68,6 +68,8 @@ Capybara Vibe is a powerful Multi-Agent CLI Coding tool designed to assist devel
 
 ### 1. Install via Pip
 
+Package is available on [PyPI](https://pypi.org/project/capybara-vibe/).
+
 ```bash
 pip install capybara-vibe
 ```

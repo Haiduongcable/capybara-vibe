@@ -9,7 +9,7 @@ Capybara Vibe is a powerful Multi-Agent CLI Coding tool designed to assist devel
   <!-- Top: CLI Interface -->
   <tr>
     <td colspan="2" align="center" style="padding: 10px;">
-      <img src="assets/capybara-cli-0.png" alt="CLI UI" width="100%" />
+      <img src="assets/Capybara-cli-0.png" alt="CLI UI" width="100%" />
       <br />
       <b>CLI Interface</b>
     </td>

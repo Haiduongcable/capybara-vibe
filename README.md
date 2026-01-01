@@ -97,7 +97,7 @@ capybara init
 Once configured, start the interactive chat session to begin coding.
 
 ```bash
-capybara chat
+capybara
 ```
 
 --------------------------------------------------------------------------------
@@ -106,7 +106,7 @@ capybara chat
 
 | Command             | Description                                      |
 | ------------------- | ------------------------------------------------ |
-| `capybara chat`     | Start interactive chat session.                  |
+| `capybara`     | Start interactive chat session.                  |
 | `capybara config`   | Show current configuration.                      |
 | `capybara init`     | Initialize configuration via web UI.             |
 | `capybara model`    | Get or set the default AI model.                 |
@@ -117,19 +117,35 @@ capybara chat
 
 ## OPERATION MODES
 
-Capybara Vibe supports different modes to ensure safety and control. Use the `--mode` flag with any command:
+Capybara Vibe supports different modes to suit your workflow. You can run the CLI with specific flags to adjust its behavior:
+
+### Standard Mode (Default)
+Run without any flags for balanced autonomy. The agent will ask for permission before sensitive actions but proceeds with safe reads automatically.
 
 ```bash
-capybara chat --mode safe
-capybara run "analyze the code" --mode plan
+capybara
 ```
 
-Available modes:
+### Plan Mode
+Use this mode for architectural planning or code analysis. It is **read-only** and prevents the agent from making any changes to your files.
 
-*   **Standard (Default):** Balanced autonomy with selective confirmations.
-*   **Safe (`--mode safe`):** Forces user confirmation for all file modifications and shell commands. Includes improved permission UI with Rich Panel display and approve-all feature for batch operations.
-*   **Plan (`--mode plan`):** Read-only mode for architectural planning without making changes. Uses dedicated planning prompt and restricted toolset.
-*   **Auto (`--mode auto`):** Maximum autonomy with minimal confirmations (use with caution).
+```bash
+capybara --mode plan
+```
+
+### Safe Mode
+For maximum control, use Safe Mode. The agent will **always ask for confirmation** before running any shell command or modifying any file.
+
+```bash
+capybara --mode safe
+```
+
+### Auto Mode
+Maximum autonomy with minimal confirmations (use with caution).
+
+```bash
+capybara --mode auto
+```
 
 --------------------------------------------------------------------------------
 

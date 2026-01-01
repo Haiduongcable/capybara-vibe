@@ -5,6 +5,7 @@
 .ruff_cache
 .coverage
 plans/
+**/__pycache__/
 __pypackages__/
 .DS_Store
 .vscode/

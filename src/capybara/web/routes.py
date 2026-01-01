@@ -124,20 +124,22 @@ async def test_connection(request: TestConnectionRequest):
         # Ensure we are using the model name exactly as stored in config (which now enforces openai/ prefix)
         # But if the UI passed it without prefix (because we stripped it for display), we re-add it here for the test
         model_to_test = provider.model
-        if request.provider.openai_compatible and not model_to_test.startswith("openai/"):
+        
+        # Logic mirroring ProviderRouter._resolve_litellm_model
+        if provider.api_type == "google":
+             if not model_to_test.startswith("gemini/"):
+                 model_to_test = f"gemini/{model_to_test}"
+        elif request.provider.openai_compatible and not model_to_test.startswith("openai/"):
             model_to_test = f"openai/{model_to_test}"
 
         # LiteLLM needs the api_base to usually end in /v1 for "openai" provider logic if using standard client
-        # But if user config doesn't have it, we might get 404.
-        # However, checking user curl: http://localhost:8317/v1/chat/completions implies base is .../v1
-        # If config is http://127.0.0.1:8317, we might need to append /v1 for LiteLLM to resolve correctly.
         api_base_to_use = provider.api_base
         if (
-            request.provider.openai_compatible
+            model_to_test.startswith("openai/")
             and api_base_to_use
             and not api_base_to_use.endswith("/v1")
         ):
-            api_base_to_use = f"{api_base_to_use}/v1"
+            api_base_to_use = f"{api_base_to_use.rstrip('/')}/v1"
 
         response = await litellm.acompletion(
             model=model_to_test,

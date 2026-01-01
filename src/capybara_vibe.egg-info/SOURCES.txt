@@ -69,6 +69,7 @@ src/capybara/web/__init__.py
 src/capybara/web/routes.py
 src/capybara/web/server.py
 src/capybara/web/transformers.py
+src/capybara/web/static/index.html
 src/capybara_vibe.egg-info/PKG-INFO
 src/capybara_vibe.egg-info/SOURCES.txt
 src/capybara_vibe.egg-info/dependency_links.txt

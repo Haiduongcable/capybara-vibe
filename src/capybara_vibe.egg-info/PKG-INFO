@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: capybara-vibe
-Version: 0.1.2
+Version: 0.1.3
 Summary: Async-first AI-powered CLI coding assistant implementing the ReAct agent pattern
 Author-email: Hai Duong <haiduong.nguyen2712@gmail.com.com>
 License: MIT
@@ -93,8 +93,9 @@ capybara init --cli
 **Interactive Chat:**
 Start a new chat session to brainstorm or ask questions.
 ```bash
-capybara chat
+capybara
 ```
+(Or use `capybara chat` for more options)
 You can also start with an initial message:
 ```bash
 capybara chat "Refactor the authentication middleware in src/"

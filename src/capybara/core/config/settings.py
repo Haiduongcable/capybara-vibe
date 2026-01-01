@@ -23,6 +23,7 @@ class ProviderConfig(BaseModel):
     """Configuration for a single LLM provider."""
 
     name: str = "default"
+    api_type: str = "openai"
     model: str = "gpt-4o"
     api_key: str | None = None
     api_base: str | None = None

@@ -7,30 +7,26 @@ def transform_provider_for_yaml(ui_provider: dict) -> ProviderConfig:
     """Transform UI provider to YAML ProviderConfig."""
     model = ui_provider["model"]
     provider_type = ui_provider.get("type", "custom")
+    openai_compatible = ui_provider.get("openai_compatible", False)
 
-    # Apply prefix based on type
-    if provider_type == "proxy":
-        # Force OpenAI prefix for LiteLLM to recognize protocol
-        if model.startswith("anthropic/"):
-            model = model[10:]
-        elif model.startswith("openai/"):
-            model = model[7:]
+    # Clean model name of prefixes for storage if we have explicit type
+    # This keeps the config.yaml clean as requested by user
+    if model.startswith("openai/"):
+        model = model[7:]
+    elif model.startswith("anthropic/"):
+        model = model[10:]
+    elif model.startswith("gemini/"):
+        model = model[7:]
 
-        model = f"openai/{model}"
-    elif provider_type == "custom" and ui_provider.get("openai_compatible", True):
-        # LiteLLM treats no-prefix as OpenAI compatible usually, but 'openai/' is safer for strictness
-        if not model.startswith("openai/"):
-            model = f"openai/{model}"
-    elif provider_type == "google":
-        if not model.startswith("gemini/"):
-            model = f"gemini/{model}"
-    elif provider_type == "anthropic":
-        if not model.startswith("anthropic/"):
-            model = f"anthropic/{model}"
-    # OpenAI and LiteLLM don't need prefix
+    # For custom/openai types, ensure we capture the intent via api_type
+    # If it's a proxy or custom openai-compatible, we'll store it as 'openai'
+    # but the router will need to handle the reconstruction.
+    # Actually, let's allow 'api_type' to store the UI provider type directly.
+    # map UI types to backend types if needed, or just 1:1
 
     return ProviderConfig(
         name=ui_provider["name"],
+        api_type=provider_type,  # Store the UI type directly
         model=model,
         api_key=ui_provider.get("api_key") or None,
         api_base=ui_provider.get("api_base") or None,
@@ -43,47 +39,36 @@ def transform_provider_for_yaml(ui_provider: dict) -> ProviderConfig:
 def transform_provider_for_ui(provider: ProviderConfig) -> dict:
     """Transform YAML ProviderConfig to UI format."""
     model = provider.model
-    provider_type = "custom"
+    provider_type = provider.api_type  # Default "openai" from model definition
     openai_compatible = False
 
-    # Detect type from model prefix and api_base
+    # Logic to refine provider_type if it's the default "openai" but the model/config implies otherwise
+    # (Backward compatibility for existing configs without explicit api_type)
+    if provider_type == "openai" and not provider.api_base:
+        if model.startswith("gemini/") or model.startswith("gemini-"):
+            provider_type = "google"
+        elif model.startswith("anthropic/") or model.startswith("claude-"):
+            provider_type = "anthropic"
+        elif "litellm" in (provider.name or "").lower():
+            provider_type = "litellm"
+        elif "proxy" in (provider.name or "").lower():
+            provider_type = "proxy"
+
+    # Cleaning model name for UI display happens automatically since we store it clean now.
+    # But if reading old config with prefixes:
     if model.startswith("openai/"):
-        provider_type = "custom"
-        openai_compatible = True
-        model = model[7:]
-    elif model.startswith("gemini/"):
-        provider_type = "google"
-        model = model[7:]
-    elif model.startswith("anthropic/") and provider.api_base:
-        # Anthropic with custom api_base = proxy
-        provider_type = "proxy"
-        model = model[10:]
-        openai_compatible = True
-    elif provider.api_base and (
-        "proxypal" in (provider.name or "").lower() or "proxy" in (provider.name or "").lower()
-    ):
-        provider_type = "proxy"
-        openai_compatible = True
-        # Remove prefixes if somehow present
-        if model.startswith("openai/"):
-            model = model[7:]
-        elif model.startswith("anthropic/"):
-            model = model[10:]
+         model = model[7:]
     elif model.startswith("anthropic/"):
-        provider_type = "anthropic"
-        model = model[10:]
-    elif model.startswith("gpt-") or model in ["o1", "o1-mini", "o1-preview"]:
-        provider_type = "openai"
-    elif model.startswith("claude-") and provider.api_base:
-        provider_type = "proxy"
+         model = model[10:]
+    elif model.startswith("gemini/"):
+         model = model[7:]
+
+    # determine openai_compatible flag for UI
+    if provider_type in ["proxy", "custom", "litellm"]:
         openai_compatible = True
-    elif model.startswith("claude-"):
-        provider_type = "anthropic"
-    elif model.startswith("gemini"):
-        provider_type = "google"
-    elif provider.api_base:
-        provider_type = "litellm" if "litellm" in (provider.api_base or "").lower() else "custom"
-        openai_compatible = True  # Assume custom with api_base is openai-compatible
+    elif provider_type == "openai":
+         # Standard OpenAI is technically compatible but UI toggle usually implies "Custom Endpoint"
+         openai_compatible = False
 
     return {
         "type": provider_type,

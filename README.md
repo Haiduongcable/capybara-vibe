@@ -1,119 +1,139 @@
-# Capybara Vibe
+# CAPYBARA VIBE
 
-**Async-first AI-powered CLI coding assistant implementing the ReAct agent pattern.**
+Multi-Agent AI CLI Coding Assistant based on Long Chain-of-Thought (CoT) agents. 
+Features Smart Memory context management and universal multi-provider support.
 
-Capybara Vibe is a powerful command-line interface designed to assist developers by leveraging Large Language Models (LLMs) to understand, plan, and execute coding tasks directly within your terminal. It supports interactive chat, one-off command execution, and session management, all built on a robust async architecture.
+--------------------------------------------------------------------------------
 
-## Features
+## OVERVIEW
 
-- **ReAct Agent Pattern**: Implements sophisticated reasoning and acting loops to solve complex problems.
-- **Interactive Chat**: Natural language conversation with context awareness.
-- **Multi-Mode Operation**:
-  - `standard`: Balanced autonomy and safety.
-  - `safe`: Restricted permissions, asking for confirmation before critical actions.
-  - `plan`: Focuses on planning without execution permissions.
-  - `auto`: High autonomy for trusted tasks.
-- **Session Management**: Save, list, and resume conversation sessions.
-- **Model Flexibility**: Easy switching between different LLM providers and models.
-- **Configuration UI**: Built-in Web UI for easy configuration management.
-- **MCP Support**: Model Context Protocol (MCP) enabled for enhanced context integration.
+Capybara Vibe is a powerful CLI tool designed to assist developers with coding tasks. It leverages multiple AI providers to offer a versatile and efficient coding companion. Whether you need a quick code snippet, a complex refactor, or a long-form planning session, Capybara Vibe adapts to your workflow.
 
-## Installation
+## VISUAL OVERVIEW
 
-Ensure you have Python 3.10 or higher installed.
+### CLI Interface
+![CLI UI](assets/capybara-cli.png)
+
+### Planning Mode
+![Todo Planning](assets/capybara-todo.png)
+
+### Multi-Agent Architecture
+![MultiAgent](assets/capyabara-multiagent.png)
+
+### Multi-Provider Selection
+![MultiProvider](assets/capybara-multiprovider.png)
+
+## KEY FEATURES
+
+*   **Multi-Agent Coding**
+    Smart delegation of tasks to sub-agents for specialized handling.
+
+*   **Multi-Provider Support**
+    Seamlessly switch between OpenAI, Anthropic, Google AI Studio, OpenRouter, and Litellm.
+
+*   **Advanced Planning**
+    Includes "Todo Planning" and "Plan Mode" to breakdown complex objectives into manageable tasks.
+
+*   **Context Management**
+    "Memory Smart Compress" ensures efficient context usage for long conversations.
+
+*   **Customization**
+    Support for custom commands to tailor the tool to your specific needs.
+
+*   **Conversation Recovery**
+    Never lose your context; resume previous sessions with ease.
+
+*   **Free Account Support**
+    Integrates with [ProxyPal](https://github.com/heyhuynhgiabuu/proxypal) - [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) for using free tier AI accounts (OpenAI Codex, Claude Pro, Google Antigravity).
+
+*   **Safety & Security**
+    Built-in protection against accidental operations in sensitive system directories and a specific "Safe Mode" for high-risk tasks.
+
+--------------------------------------------------------------------------------
+
+## INSTALLATION
+
+### 1. Install via Pip
 
 ```bash
 pip install capybara-vibe
 ```
 
-## Getting Started
+### 2. Install from Source
 
-### 1. Configuration
+```bash
+git clone https://github.com/yourusername/capybara-vibe-coding
+cd capybara-vibe-coding
+pip install -e .
+```
 
-Before using Capybara, you need to initialize the configuration. You can do this via an interactive Web UI or through the CLI.
+--------------------------------------------------------------------------------
 
-**Web UI (Recommended):**
+## QUICK START
+
+### Initialization
+
+Run the initialization command to set up your configuration. This will open a web UI where you can input your API keys or subscription details.
+
 ```bash
 capybara init
 ```
-This will open a configuration page in your browser where you can set up your LLM providers (e.g., OpenAI, Anthropic) and other settings.
 
-**CLI Only:**
-```bash
-capybara init --cli
-```
+### Start Chatting
 
-### 2. Basic Usage
+Once configured, start the interactive chat session to begin coding.
 
-**Interactive Chat:**
-Start a new chat session to brainstorm or ask questions.
 ```bash
 capybara chat
 ```
-You can also start with an initial message:
-```bash
-capybara chat "Refactor the authentication middleware in src/"
-```
 
-**Single Command Run:**
-Execute a specific task and exit.
-```bash
-capybara run "Write a unit test for the user login function"
-```
+--------------------------------------------------------------------------------
 
-### 3. Usage Options
+## CLI COMMANDS
 
-**Select Model:**
-Specify a model for a specific command:
-```bash
-capybara chat --model gpt-4-turbo
-```
+| Command             | Description                                      |
+| ------------------- | ------------------------------------------------ |
+| `capybara chat`     | Start interactive chat session.                  |
+| `capybara config`   | Show current configuration.                      |
+| `capybara init`     | Initialize configuration via web UI.             |
+| `capybara model`    | Get or set the default AI model.                 |
+| `capybara resume`   | Resume a previous conversation session.          |
+| `capybara run`      | Run a single prompt and exit.                    |
 
-**Set Default Model:**
-View available models and set a global default:
-```bash
-capybara model
-```
-Or set it directly:
-```bash
-capybara model gpt-4-turbo
-```
+--------------------------------------------------------------------------------
 
-**Modes:**
-Run in different modes depending on your needs:
-```bash
-capybara chat --mode safe   # Asks for permission before file edits
-capybara chat --mode plan   # Only generates plans, no file edits
-```
+## OPERATION MODES
 
-### 4. Session Management
+Capybara Vibe supports different modes to ensure safety and control:
 
-**List Sessions:**
-See your recent activity.
-```bash
-capybara sessions
-```
+*   **Standard (Default):** Balanced autonomy.
+*   **Safe (`--mode safe`):** Forces user confirmation for all file modifications and shell commands.
+*   **Plan (`--mode plan`):** Read-only mode for architectural planning without making changes.
+*   **Auto (`--mode auto`):** Maximum autonomy (use with caution).
 
-**Resume a Session:**
-Pick up where you left off using the Session ID.
-```bash
-capybara resume <session_id>
-```
+--------------------------------------------------------------------------------
 
-## Development
+## CONFIGURATION & SETUP
 
-To contribute to Capybara Vibe Coding:
+### API Providers
 
-1. Clone the repository.
-2. Install dependencies:
-   ```bash
-   pip install -e ".[dev]"
-   ```
-3. Run tests:
-   ```bash
-   pytest
-   ```
+You can configure the following providers:
+*   OpenAI
+*   Anthropic
+*   Google AI Studio
+*   OpenRouter
+*   Litellm
 
-## License
+### Free AI Subscription Setup
 
-[MIT](LICENSE)
+### Free AI Subscription Setup
+
+To use free AI subscriptions (e.g., OpenAI Codex, Google Antigravity), please refer to our [Setup Guide](Guide.md).
+
+--------------------------------------------------------------------------------
+
+
+
+## LICENSE
+
+MIT License

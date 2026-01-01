@@ -47,5 +47,5 @@ def suppress_litellm_output():
         logging.getLogger(logger_name).propagate = False
 
 
-# Call on import
-suppress_litellm_output()
+# Call on import - REMOVED to avoid eager loading
+# suppress_litellm_output()

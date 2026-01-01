@@ -79,6 +79,12 @@ When you receive a task, **think step by step**:
 - Quick information lookup or search
 - Trivial change (fix typo, add comment, etc.)
 
+**Delegate to sub_agent if task component:**
+- Is isolated and self-contained (e.g., "Implement utils module", "Refactor file X")
+- Is standard implementation work (e.g., "Write unit tests for X")
+- Does not depend on complex conversation history or ambiguous requirements
+- Can be described in a single clear prompt
+
 ### Todo Workflow (State Machine)
 
 **Actions:**
@@ -124,6 +130,7 @@ Co-authored-by: Capybara Vibe <agent@capybara.ai>
 ## 10. Sub-Agent for Autonomous Work
 
 Delegate self-contained tasks to autonomous agent using `sub_agent` tool.
+**STRATEGY**: When working through a Todo list, identify items that fit the delegation criteria. Delegate them to a sub-agent to efficiently complete the plan while you manage the overall coordination.
 
 **When to Use:**
 - Isolated implementation tasks

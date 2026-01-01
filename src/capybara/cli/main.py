@@ -2,10 +2,8 @@
 
 import asyncio
 
-# IMPORTANT: Import litellm config FIRST to suppress verbose output
-from capybara.core.config.litellm_config import suppress_litellm_output
-
-suppress_litellm_output()
+# ... (imports) ...
+# IMPORTANT: Import litellm config is now lazy-loaded inside commands
 
 import click
 from rich.console import Console
@@ -20,12 +18,20 @@ logger = setup_logging(log_level="INFO", console_output=False)
 
 console = Console()
 
+def _ensure_litellm():
+    """Lazy load and configure LiteLLM."""
+    from capybara.core.config.litellm_config import suppress_litellm_output
+    suppress_litellm_output()
 
-@click.group()
+
+@click.group(invoke_without_command=True)
 @click.version_option(version=__version__, prog_name="capybara")
-def cli() -> None:
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     """CapybaraVibeCoding - AI-powered coding assistant."""
-    pass
+    if ctx.invoked_subcommand is None:
+        _ensure_litellm()
+        asyncio.run(_chat_async(model=None, stream=True, mode="standard", initial_message=None))
 
 
 @cli.command()
@@ -43,6 +49,7 @@ def chat(message: str | None, model: str | None, no_stream: bool, mode: str) -> 
 
     Optionally provide a MESSAGE to start the conversation immediately.
     """
+    _ensure_litellm()
     asyncio.run(_chat_async(model, not no_stream, mode, message))
 
 
@@ -58,6 +65,7 @@ def chat(message: str | None, model: str | None, no_stream: bool, mode: str) -> 
 )
 def run(prompt: str, model: str | None, no_stream: bool, mode: str) -> None:
     """Run a single prompt and exit."""
+    _ensure_litellm()
     asyncio.run(_run_async(prompt, model, not no_stream, mode))
 
 
@@ -78,6 +86,7 @@ def init(use_cli: bool, no_browser: bool) -> None:
     else:
         # Web UI
         console.print("[bold]Starting configuration UI...[/bold]")
+        _ensure_litellm()
         try:
             from capybara.web.server import run_server
 
@@ -187,6 +196,7 @@ def sessions() -> None:
 @click.option("--model", "-m", default=None, help="Model to use")
 def resume(session_id: str, model: str | None) -> None:
     """Resume a previous conversation session."""
+    _ensure_litellm()
     asyncio.run(_resume_async(session_id, model))
 
 

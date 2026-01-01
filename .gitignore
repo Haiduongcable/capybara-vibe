@@ -14,3 +14,4 @@ docs/
 .env.*
 dist/
 build/
+src/capybara_vibe.egg-info

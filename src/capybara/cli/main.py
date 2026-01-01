@@ -4,7 +4,6 @@ import asyncio
 
 # ... (imports) ...
 # IMPORTANT: Import litellm config is now lazy-loaded inside commands
-
 import click
 from rich.console import Console
 from rich.panel import Panel
@@ -18,20 +17,28 @@ logger = setup_logging(log_level="INFO", console_output=False)
 
 console = Console()
 
+
 def _ensure_litellm():
     """Lazy load and configure LiteLLM."""
     from capybara.core.config.litellm_config import suppress_litellm_output
+
     suppress_litellm_output()
 
 
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__, prog_name="capybara")
+@click.option(
+    "--mode",
+    type=click.Choice(["standard", "safe", "plan", "auto"]),
+    default="standard",
+    help="Operation mode (standard, safe, plan, auto)",
+)
 @click.pass_context
-def cli(ctx: click.Context) -> None:
+def cli(ctx: click.Context, mode: str) -> None:
     """CapybaraVibeCoding - AI-powered coding assistant."""
     if ctx.invoked_subcommand is None:
         _ensure_litellm()
-        asyncio.run(_chat_async(model=None, stream=True, mode="standard", initial_message=None))
+        asyncio.run(_chat_async(model=None, stream=True, mode=mode, initial_message=None))
 
 
 @cli.command()
@@ -267,7 +274,7 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
 
         # Set system prompt
         project_context = await build_project_context()
-        memory.set_system_prompt(build_system_prompt(project_context=project_context))
+        memory.set_system_prompt(build_system_prompt(project_context=project_context, mode=mode))
 
         provider = ProviderRouter(providers=cfg.providers, default_model=model)
         agent = Agent(

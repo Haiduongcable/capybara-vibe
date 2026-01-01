@@ -1,36 +1,35 @@
 # CAPYBARA VIBE
 
-Multi-Agent AI CLI Coding Assistant based on Long Chain-of-Thought (CoT) agents. 
-Features Smart Memory context management and universal multi-provider support.
-
---------------------------------------------------------------------------------
-
-## OVERVIEW
-
-Capybara Vibe is a powerful CLI tool designed to assist developers with coding tasks. It leverages multiple AI providers to offer a versatile and efficient coding companion. Whether you need a quick code snippet, a complex refactor, or a long-form planning session, Capybara Vibe adapts to your workflow.
+## I write this README by myself, no LLM, no any icon bla bla, trust me bro
+Capybara Vibe is a powerful Multi-Agent CLI Coding tool designed to assist developers with coding tasks. It leverages multiple AI providers to offer a versatile and efficient coding companion. Whether you need a quick code snippet, a complex refactor, or a long-form planning session, Capybara Vibe adapts to your workflow. 
 
 ## VISUAL OVERVIEW
 
 <table border="1" cellspacing="0" cellpadding="10" width="100%">
+  <!-- Top: CLI Interface -->
   <tr>
-    <td align="center" width="50%" style="padding: 10px;">
+    <td colspan="2" align="center" style="padding: 10px;">
       <img src="assets/capybara-cli.png" alt="CLI UI" width="100%" />
       <br />
       <b>CLI Interface</b>
     </td>
+  </tr>
+  <!-- Middle: Planning & Multi-Agent -->
+  <tr>
     <td align="center" width="50%" style="padding: 10px;">
       <img src="assets/capybara-todo.png" alt="Todo Planning" width="100%" />
       <br />
       <b>Planning Mode</b>
     </td>
-  </tr>
-  <tr>
     <td align="center" width="50%" style="padding: 10px;">
       <img src="assets/capyabara-multiagent.png" alt="MultiAgent" width="100%" />
       <br />
       <b>Multi-Agent Architecture</b>
     </td>
-    <td align="center" width="50%" style="padding: 10px;">
+  </tr>
+  <!-- Bottom: Multi-Provider -->
+  <tr>
+    <td colspan="2" align="center" style="padding: 10px;">
       <img src="assets/capybara-multiprovider.png" alt="MultiProvider" width="100%" />
       <br />
       <b>Multi-Provider Selection</b>
@@ -62,8 +61,7 @@ Capybara Vibe is a powerful CLI tool designed to assist developers with coding t
     Integrates with [ProxyPal](https://github.com/heyhuynhgiabuu/proxypal) - [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) for using free tier AI accounts (OpenAI Codex, Claude Pro, Google Antigravity).
 
 *   **Safety & Security**
-    Built-in protection against accidental operations in sensitive system directories and a specific "Safe Mode" for high-risk tasks.
-
+    Built-in protection against accidental operations in sensitive system directories and a specific "Safe Mode" for high-risk tasks. (trust me I am not robot)
 --------------------------------------------------------------------------------
 
 ## INSTALLATION
@@ -119,12 +117,19 @@ capybara chat
 
 ## OPERATION MODES
 
-Capybara Vibe supports different modes to ensure safety and control:
+Capybara Vibe supports different modes to ensure safety and control. Use the `--mode` flag with any command:
 
-*   **Standard (Default):** Balanced autonomy.
-*   **Safe (`--mode safe`):** Forces user confirmation for all file modifications and shell commands.
-*   **Plan (`--mode plan`):** Read-only mode for architectural planning without making changes.
-*   **Auto (`--mode auto`):** Maximum autonomy (use with caution).
+```bash
+capybara chat --mode safe
+capybara run "analyze the code" --mode plan
+```
+
+Available modes:
+
+*   **Standard (Default):** Balanced autonomy with selective confirmations.
+*   **Safe (`--mode safe`):** Forces user confirmation for all file modifications and shell commands. Includes improved permission UI with Rich Panel display and approve-all feature for batch operations.
+*   **Plan (`--mode plan`):** Read-only mode for architectural planning without making changes. Uses dedicated planning prompt and restricted toolset.
+*   **Auto (`--mode auto`):** Maximum autonomy with minimal confirmations (use with caution).
 
 --------------------------------------------------------------------------------
 
@@ -152,3 +157,5 @@ To use free AI subscriptions (e.g., OpenAI Codex, Google Antigravity), please re
 ## LICENSE
 
 MIT License
+
+Also all of these were written by myself!!

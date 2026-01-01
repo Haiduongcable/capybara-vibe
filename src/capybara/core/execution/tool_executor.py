@@ -62,6 +62,7 @@ class ToolExecutor:
         self.session_logger = session_logger
         self.execution_log = execution_log
         self.event_bus = event_bus
+        self._approve_all = False  # Track "approve all" permission state
 
     async def execute_tools(
         self,
@@ -268,28 +269,60 @@ class ToolExecutor:
                 "content": result if isinstance(result, str) else json.dumps(result),
             }
 
-        # Check if we're executing sub_agent (which has its own progress display)
-        has_sub_agent = any(tc["function"]["name"] == "sub_agent" for tc in tool_calls)
+        # Separate tools by permission requirement
+        needs_permission = []
+        auto_approved = []
 
-        # Run with Live display (unless executing sub_agent which has its own UI)
-        if has_sub_agent:
-            # Sub-agent handles its own progress display, don't show Live panel
-            results = await asyncio.gather(
-                *[execute_one(tc) for tc in tool_calls],
-                return_exceptions=True,
-            )
-        else:
-            # Normal tools: show Live status panel
-            with Live(
-                render_status(), console=self.console, refresh_per_second=10, transient=True
-            ) as live:
-                results = await asyncio.gather(
-                    *[execute_one(tc) for tc in tool_calls],
+        for tc in tool_calls:
+            name = tc["function"]["name"]
+            try:
+                args = json.loads(tc["function"]["arguments"])
+                if await self._needs_user_permission(name, args):
+                    needs_permission.append(tc)
+                else:
+                    auto_approved.append(tc)
+            except json.JSONDecodeError:
+                # If args can't be parsed, treat as auto-approved (will fail in execute_one)
+                auto_approved.append(tc)
+
+        # Execute permission-required tools SEQUENTIALLY without Live UI
+        results_with_permission = []
+        if needs_permission:
+            for tc in needs_permission:
+                result = await execute_one(tc)
+                results_with_permission.append(result)
+
+        # Check if we're executing sub_agent (which has its own progress display)
+        has_sub_agent = any(tc["function"]["name"] == "sub_agent" for tc in auto_approved)
+
+        # Execute auto-approved tools in PARALLEL with Live UI
+        results_auto = []
+        if auto_approved:
+            if has_sub_agent:
+                # Sub-agent handles its own progress display, don't show Live panel
+                results_auto = await asyncio.gather(
+                    *[execute_one(tc) for tc in auto_approved],
                     return_exceptions=True,
                 )
+            else:
+                # Normal tools: show Live status panel
+                with Live(
+                    render_status(),
+                    console=self.console,
+                    refresh_per_second=20,
+                    transient=True,
+                    vertical_overflow="visible",
+                ) as live:
+                    results_auto = await asyncio.gather(
+                        *[execute_one(tc) for tc in auto_approved],
+                        return_exceptions=True,
+                    )
 
-                # Final update
-                live.update(render_status())
+                    # Final update
+                    live.update(render_status())
+
+        # Combine results (permission-required first, then auto-approved)
+        results = results_with_permission + list(results_auto)
 
         # Process results
         processed: list[dict[str, Any]] = []
@@ -306,6 +339,41 @@ class ToolExecutor:
                 )
 
         return processed
+
+    async def _needs_user_permission(self, name: str, args: dict[str, Any]) -> bool:
+        """Check if a tool will require user permission prompt."""
+        security_config = self.tools_config.security.get(name)
+
+        # No config = no permission needed
+        if not security_config:
+            return False
+
+        permission = security_config.permission
+
+        # NEVER and ALWAYS don't require user prompt
+        if permission in (ToolPermission.NEVER, ToolPermission.ALWAYS):
+            return False
+
+        if permission == ToolPermission.ASK:
+            # Check if allowlist matches (would auto-approve)
+            args_str = str(args)
+            for pattern in security_config.allowlist:
+                if re.search(pattern, args_str):
+                    return False
+
+            # Check if denylist matches (would auto-deny)
+            for pattern in security_config.denylist:
+                if re.search(pattern, args_str):
+                    return False
+
+            # Check if approve_all is set
+            if self._approve_all:
+                return False
+
+            # Otherwise, needs user prompt
+            return True
+
+        return False
 
     async def _check_permission(self, name: str, args: dict[str, Any]) -> bool:
         """Check if tool execution is allowed by security policy."""
@@ -324,6 +392,10 @@ class ToolExecutor:
             return True
 
         if permission == ToolPermission.ASK:
+            # Check approve_all flag first
+            if self._approve_all:
+                return True
+
             # Check allowlist
             args_str = str(args)
             for pattern in security_config.allowlist:
@@ -340,29 +412,126 @@ class ToolExecutor:
 
         return True
 
-    async def _ask_user_permission(self, name: str, args: dict[str, Any]) -> bool:
-        """Prompt user for permission to execute tool."""
-        self.console.print("\n[bold yellow]⚠️  Permission Request[/bold yellow]")
-        self.console.print(f"Tool: [cyan]{name}[/cyan]")
-        self.console.print(f"Args: {json.dumps(args, indent=2)}")
+    def _truncate_args(self, args: dict[str, Any]) -> tuple[str, bool]:
+        """Truncate arguments for display. Returns (truncated_str, was_truncated)."""
+        MAX_ARG_LENGTH = 100
+        MAX_TOTAL_LENGTH = 500
 
-        try:
-            response = await asyncio.to_thread(self.console.input, "Approve? [y/N]: ")
-            approved = response.lower().strip().startswith("y")
+        truncated_args = {}
+        was_truncated = False
 
-            # Log decision
-            if self.session_logger:
-                self.session_logger.info(
-                    f"Permission request for {name}: {'approved' if approved else 'denied'}"
-                )
+        for key, value in args.items():
+            value_str = str(value)
 
-            return approved
-        except Exception as e:
-            if self.session_logger:
-                self.session_logger.error(f"Error getting user input: {e}")
+            if len(value_str) > MAX_ARG_LENGTH:
+                # For large values, show type and size info
+                if isinstance(value, str):
+                    lines = value.count("\n") + 1
+                    size_kb = len(value) / 1024
+                    if size_kb < 1:
+                        truncated_args[key] = f"<{len(value)} chars, {lines} lines>"
+                    else:
+                        truncated_args[key] = f"<{size_kb:.1f}KB, {lines} lines>"
+                elif isinstance(value, list | tuple):
+                    truncated_args[key] = f"<{type(value).__name__} with {len(value)} items>"
+                elif isinstance(value, dict):
+                    truncated_args[key] = f"<dict with {len(value)} keys>"
+                else:
+                    truncated_args[key] = f"<{type(value).__name__}>"
+                was_truncated = True
             else:
-                logger.error(f"Error getting user input: {e}")
-            return False
+                truncated_args[key] = value
+
+        # Format as function call
+        args_parts = []
+        for key, value in truncated_args.items():
+            if isinstance(value, str) and not value.startswith("<"):
+                args_parts.append(f'{key}="{value}"')
+            else:
+                args_parts.append(f"{key}={value}")
+
+        result = ", ".join(args_parts)
+        if len(result) > MAX_TOTAL_LENGTH:
+            result = result[:MAX_TOTAL_LENGTH] + "..."
+            was_truncated = True
+
+        return result, was_truncated
+
+    async def _ask_user_permission(self, name: str, args: dict[str, Any]) -> bool:
+        """Prompt user for permission with simple typing menu."""
+        from rich.panel import Panel
+
+        # Truncate arguments for display
+        truncated_args, has_more = self._truncate_args(args)
+        full_args = json.dumps(args, indent=2)
+
+        while True:  # Loop to allow "View Full Args" option
+            # Display tool call with truncated args
+            self.console.print(
+                f"\n[bold yellow]🔒 Permission:[/bold yellow] [cyan]{name}[/cyan]({truncated_args})"
+            )
+            if has_more:
+                self.console.print("[dim]   (args truncated, type 'v' to view full)[/dim]")
+
+            # Show inline menu options
+            self.console.print(
+                "   [green]y[/green]=Accept  [red]n[/red]=Deny  [yellow]a[/yellow]=Approve All  [cyan]v[/cyan]=View Full"
+            )
+
+            # Get user choice
+            try:
+                response = await asyncio.to_thread(self.console.input, "   Choice [y/n/a/v]: ")
+
+                choice = response.lower().strip()
+
+                if choice == "y" or choice == "":
+                    if self.session_logger:
+                        self.session_logger.info(f"Permission request for {name}: approved")
+                    self.console.print("[green]   ✓ Accepted[/green]\n")
+                    return True
+
+                elif choice == "n":
+                    if self.session_logger:
+                        self.session_logger.info(f"Permission request for {name}: denied")
+                    self.console.print("[red]   ✗ Denied[/red]\n")
+                    return False
+
+                elif choice == "a":
+                    self._approve_all = True
+                    if self.session_logger:
+                        self.session_logger.info("User enabled 'approve all' mode")
+                    self.console.print("[yellow]   ✓✓ Approve all enabled[/yellow]\n")
+                    return True
+
+                elif choice == "v":
+                    # Show full arguments
+                    self.console.print("\n[bold cyan]Full Arguments:[/bold cyan]")
+                    self.console.print(
+                        Panel(
+                            full_args,
+                            border_style="cyan",
+                            padding=(1, 1),
+                        )
+                    )
+                    self.console.print()
+                    continue  # Loop back to show menu again
+
+                else:
+                    self.console.print(
+                        f"[red]   Invalid choice '{choice}'. Please use y/n/a/v[/red]"
+                    )
+                    continue
+
+            except KeyboardInterrupt:
+                self.console.print("\n[red]   ✗ Denied (interrupted)[/red]\n")
+                return False
+            except Exception as e:
+                if self.session_logger:
+                    self.session_logger.error(f"Error getting user input: {e}")
+                else:
+                    logger.error(f"Error getting user input: {e}")
+                self.console.print("[red]   ✗ Error, denying by default[/red]\n")
+                return False
 
     def _display_tool_args(self, name: str, args: dict[str, Any]) -> None:
         """Display tool arguments above Live region."""

@@ -1,34 +1,32 @@
 """Interactive chat with prompt_toolkit."""
 
+import os
 import random
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
+from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
-from rich.align import Align
 from rich.table import Table
 from rich.text import Text
-from rich import box
-import os
+
 from capybara import __version__
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from capybara.core.agent import Agent, AgentConfig
     from capybara.core.config import CapybaraConfig
     from capybara.memory.storage import ConversationStorage
 
-from capybara.core.logging import get_logger
 # CapybaraConfig is needed for type hints in function signatures at runtime?
 # python 3.10+ handles string annotations but for safety I import it if it's light.
 # settings.py is light-ish.
 from capybara.core.config import CapybaraConfig
+from capybara.core.logging import get_logger
 from capybara.memory.storage import ConversationStorage
 
 # Remove heavy imports from top-level
@@ -71,52 +69,52 @@ def _get_display_info(config: CapybaraConfig, model: str) -> tuple[str, str]:
         # Check against the configured model name (short name)
         if provider.model == model:
             return provider.name, provider.model
-            
+
     # Fallback to defaults or raw model string
     return "Default", model
-
 
 
 CAPYBARA_ASCII_ART = r"""
    ______                   __
   / ____/____ _____  __  __/ /_  ____ __________ _
  / /    / __ `/ __ \/ / / / __ \/ __ `/ ___/ __ `/
-/ /___ / /_/ / /_/ / /_/ / /_/ / /_/ / /  / /_/ / 
-\____/ \__,_/ .___/\__, /_.___/\__,_/_/   \__,_/  
-           /_/    /____/                          
+/ /___ / /_/ / /_/ / /_/ / /_/ / /_/ / /  / /_/ /
+\____/ \__,_/ .___/\__, /_.___/\__,_/_/   \__,_/
+           /_/    /____/
 """
+
 
 def _print_welcome_panel(config: CapybaraConfig, model: str, session_id: str | None = None) -> None:
     """Print the welcome panel with professional layout."""
     provider_name, display_model = _get_display_info(config, model)
     user_name = os.environ.get("USER", os.environ.get("USERNAME", "User"))
     cwd = os.getcwd()
-    
+
     # Create the main grid for the panel content (2 columns)
     grid = Table.grid(expand=True, padding=(0, 2))
     grid.add_column(ratio=2)  # Main content
     grid.add_column(ratio=1)  # specific tips/info
-    
+
     # Left Column Content
     left_content = Table.grid(padding=(0, 1))
-    left_content.add_row(Text(f"Welcome back, {"HaiDuong"}!", style="bold blue"))
+    left_content.add_row(Text(f"Welcome back, {user_name}!", style="bold blue"))
     left_content.add_row(Align.left(Text(CAPYBARA_ASCII_ART, style="bold green")))
-    
+
     # Info section in left column
     info_table = Table.grid(padding=(0, 2))
     info_table.add_row("Provider:", Text(provider_name, style="cyan"))
     info_table.add_row("Model:", Text(display_model, style="cyan"))
-    
+
     display_cwd = cwd
     if len(cwd) > 40:
         display_cwd = "..." + cwd[-37:]
     info_table.add_row("Path:", Text(display_cwd, style="dim"))
-    
+
     if session_id:
         info_table.add_row("Session:", Text(session_id[:8], style="dim"))
-        
+
     left_content.add_row(info_table)
-    
+
     # Right Column Content (Tips)
     right_content = Table.grid(padding=(0, 1))
     right_content.add_row(Text("Tips for getting started", style="bold underline"))
@@ -126,14 +124,14 @@ def _print_welcome_panel(config: CapybaraConfig, model: str, session_id: str | N
     right_content.add_row("• /tools to see tools")
     right_content.add_row("• 'exit' to quit")
     right_content.add_row("")
-    
+
     if config and hasattr(config, "features"):
         mode_str = "Auto" if config.features.complexity_threshold else "Standard"
         right_content.add_row(Text("Mode:", style="dim"), Text(mode_str, style="dim"))
 
     # Add columns to main grid
     grid.add_row(left_content, right_content)
-    
+
     # Create the panel
     panel = Panel(
         grid,
@@ -164,7 +162,7 @@ async def interactive_chat(
 
     config = config or load_config()
     console = Console()
-    
+
     # Show UI immediately to reduce perceived latency
     # Show UI immediately to reduce perceived latency
     _print_welcome_panel(config, model)
@@ -177,7 +175,6 @@ async def interactive_chat(
         from capybara.core.utils.prompts import build_system_prompt
         from capybara.memory.window import ConversationMemory, MemoryConfig
         from capybara.tools.base import ToolPermission, ToolSecurityConfig
-        from capybara.tools.builtin import registry as default_tools
         from capybara.tools.mcp.bridge import MCPBridge
         from capybara.tools.registry import ToolRegistry
         from capybara.ui.todo_panel import PersistentTodoPanel
@@ -189,7 +186,9 @@ async def interactive_chat(
             if mode == "safe":
                 # Force ASK for everything
                 for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
-                    config.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
+                    config.tools.security[tool_name] = ToolSecurityConfig(
+                        permission=ToolPermission.ASK
+                    )
 
             elif mode == "auto":
                 # Force ALWAYS for everything (CAUTION)
@@ -199,13 +198,26 @@ async def interactive_chat(
                     )
 
             elif mode == "plan":
-                # Disable dangerous tools
-                for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
+                # Configure bash with read-only denylist
+                config.tools.security["bash"] = ToolSecurityConfig(
+                    permission=ToolPermission.ASK,
+                    denylist=[
+                        r"rm\s",  # Delete files
+                        r"mv\s",  # Move files
+                        r"cp\s.*>",  # Redirect overwrites
+                        r">",  # Output redirection
+                        r">>",  # Append redirection
+                        r"git\s+commit",  # Git write operations
+                        r"git\s+push",
+                        r"npm\s+install",  # Installation commands
+                        r"pip\s+install",
+                    ],
+                )
+                # Disable write tools completely
+                for tool_name in ["write_file", "edit_file", "delete_file", "todo", "sub_agent"]:
                     config.tools.security[tool_name] = ToolSecurityConfig(
                         permission=ToolPermission.NEVER
                     )
-                # Ensure safe tools are enabled
-                config.tools.security["todo"] = ToolSecurityConfig(permission=ToolPermission.ALWAYS)
 
         # Setup agent with provider router
         from capybara.core.delegation.session_manager import SessionManager
@@ -220,7 +232,7 @@ async def interactive_chat(
 
         # Set system prompt
         project_context = await build_project_context()
-        memory.set_system_prompt(build_system_prompt(project_context=project_context))
+        memory.set_system_prompt(build_system_prompt(project_context=project_context, mode=mode))
 
         # Initialize storage and session manager BEFORE agent creation
         storage = ConversationStorage()
@@ -272,8 +284,8 @@ async def interactive_chat(
 
         # Post-Registry Mode Logic (Hiding Tools)
         if mode == "plan":
-            # Completely hide tools so the agent doesn't even know they exist
-            for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
+            # Completely hide write tools so the agent doesn't even know they exist
+            for tool_name in ["write_file", "edit_file", "delete_file", "todo", "sub_agent"]:
                 agent.tools.unregister(tool_name)
 
         # Setup MCP integration if enabled
@@ -428,7 +440,7 @@ async def interactive_chat_with_session(
     # Show UI immediately
     # Show UI immediately
     _print_welcome_panel(config, model, session_id=session_id)
-    
+
     with console.status("[dim]Loading session engine...[/dim]", spinner="dots"):
         from capybara.core.agent import Agent, AgentConfig
         from capybara.core.utils.context import build_project_context
@@ -470,9 +482,11 @@ async def interactive_chat_with_session(
         memory_config = MemoryConfig(max_tokens=config.memory.max_tokens)
         memory = ConversationMemory(config=memory_config)
 
-        # Set system prompt
+        # Set system prompt (resumed sessions use standard mode)
         project_context = await build_project_context()
-        memory.set_system_prompt(build_system_prompt(project_context=project_context))
+        memory.set_system_prompt(
+            build_system_prompt(project_context=project_context, mode="standard")
+        )
 
         # Load initial messages if provided
         if initial_messages:

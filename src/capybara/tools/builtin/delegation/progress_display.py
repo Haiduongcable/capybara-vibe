@@ -100,7 +100,11 @@ async def display_sub_agent_progress(
 
     # Use Live display for animated spinner
     with Live(
-        render_progress(), console=parent_agent.console, refresh_per_second=10, transient=True
+        render_progress(),
+        console=parent_agent.console,
+        refresh_per_second=20,
+        transient=True,
+        vertical_overflow="visible",
     ) as live:
         async for event in event_bus.subscribe(child_session_id):
             if event.event_type == EventType.AGENT_STATE_CHANGE:

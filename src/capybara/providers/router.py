@@ -51,7 +51,7 @@ class ProviderRouter:
                 # For custom/proxy, it is REQUIRED.
                 if api_type != "openai" or provider.api_base:
                     return f"openai/{model}"
-        
+
         return model
 
     def _init_router(self, providers: list[ProviderConfig]) -> None:
@@ -60,28 +60,26 @@ class ProviderRouter:
         for provider in providers:
             full_model = self._resolve_litellm_model(provider)
             model_config: dict[str, Any] = {
-                "model_name": provider.name, # Use the friendly name as the routing key? No, likely provider.model (short name)
+                "model_name": provider.model,  # Use the short name as the routing key
                 # Wait, if we use provider.name (e.g. "LiteLLM"), then user must use "LiteLLM" to call it?
-                # Previous code used provider.name as model_name. 
+                # Previous code used provider.name as model_name.
                 # But in interactive.py we pass `model` (e.g. "openai/codevista...").
                 # If we change config to store clean name, `provider.model` is "codevista...".
                 # We should probably map logical name to this config.
                 # Actually, let's map BOTH provider.model AND provider.name to this config to be safe?
                 # LiteLLM allows model_list to have unique model_name.
-                # Let's stick to using provider.model (the short string) as the key if possible, 
+                # Let's stick to using provider.model (the short string) as the key if possible,
                 # but unique constraints apply.
-                # Existing code: "model_name": provider.name. 
-                # This implies previous router usages routed by Provider Name? 
+                # Existing code: "model_name": provider.name.
+                # This implies previous router usages routed by Provider Name?
                 # Let's check `_get_provider_config`: it matches by `provider.model`.
                 # This suggests existing architecture might be slightly mismatched or I'm misreading `model_name` usage in `Router`.
                 # Litellm Router routes by matching `model` arg to `model_name` in config OR `model_group`.
                 # IF `provider.name` was used, then `complete(model="gpt-4")` would fail if name was "OpenAI"?
                 # Unless `default_model` is passed.
-                
                 # Let's look at `complete` method: `kwargs["model"] = model` (Passed val).
                 # If I pass "codevista...", and `model_name` is "LiteLLM", it won't match.
                 # I should change `model_name` to `provider.model` (the short name).
-                "model_name": provider.model, 
                 "litellm_params": {
                     "model": full_model,
                     "rpm": provider.rpm,
@@ -177,7 +175,7 @@ class ProviderRouter:
 
         if stream:
             kwargs["stream_options"] = {"include_usage": True}
-            
+
         # Ensure we drop unsupported standard params for strict proxies
         kwargs["drop_params"] = True
 
@@ -194,11 +192,9 @@ class ProviderRouter:
                         full_model = self._resolve_litellm_model(provider_config)
                         # Update model to full model for direct call
                         kwargs["model"] = full_model
-                        
-                        if full_model.startswith("openai/") and not api_base.endswith(
-                            "/v1"
-                        ):
-                             api_base = f"{api_base.rstrip('/')}/v1"
+
+                        if full_model.startswith("openai/") and not api_base.endswith("/v1"):
+                            api_base = f"{api_base.rstrip('/')}/v1"
                         kwargs["api_base"] = api_base
                 response = await litellm.acompletion(**kwargs)
 
@@ -287,9 +283,7 @@ class ProviderRouter:
                         full_model = self._resolve_litellm_model(provider_config)
                         kwargs["model"] = full_model
 
-                        if full_model.startswith("openai/") and not api_base.endswith(
-                            "/v1"
-                        ):
+                        if full_model.startswith("openai/") and not api_base.endswith("/v1"):
                             api_base = f"{api_base.rstrip('/')}/v1"
                         kwargs["api_base"] = api_base
                 response = await litellm.acompletion(**kwargs)

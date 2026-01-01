@@ -124,11 +124,11 @@ async def test_connection(request: TestConnectionRequest):
         # Ensure we are using the model name exactly as stored in config (which now enforces openai/ prefix)
         # But if the UI passed it without prefix (because we stripped it for display), we re-add it here for the test
         model_to_test = provider.model
-        
+
         # Logic mirroring ProviderRouter._resolve_litellm_model
         if provider.api_type == "google":
-             if not model_to_test.startswith("gemini/"):
-                 model_to_test = f"gemini/{model_to_test}"
+            if not model_to_test.startswith("gemini/"):
+                model_to_test = f"gemini/{model_to_test}"
         elif request.provider.openai_compatible and not model_to_test.startswith("openai/"):
             model_to_test = f"openai/{model_to_test}"
 

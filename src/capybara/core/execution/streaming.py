@@ -1,6 +1,7 @@
 """Streaming response handling for agent completions."""
 
 import re
+import time
 from typing import Any
 
 from rich.console import Console, Group
@@ -29,6 +30,39 @@ def _clean_content(content: str) -> str:
     return re.sub(p, "", content)
 
 
+def _update_display(
+    live: Live,
+    collected_content: list[str],
+    collected_tool_calls: dict[int, dict[str, Any]],
+) -> None:
+    """Update Live display with current content."""
+    display_content = _clean_content("".join(collected_content))
+
+    if collected_tool_calls:
+        # Show tool preparation message
+        if display_content.strip():
+            live.update(
+                Group(
+                    Markdown(display_content),
+                    Text("🔨 Preparing tool execution...", style="dim cyan"),
+                    Spinner("dots", style="cyan"),
+                )
+            )
+        else:
+            live.update(
+                Group(
+                    Text("🔨 Preparing tool execution...", style="dim cyan"),
+                    Spinner("dots", style="cyan"),
+                )
+            )
+    elif display_content.strip():
+        # Show content + spinner
+        live.update(Group(Markdown(display_content), Spinner("dots", style="cyan")))
+    else:
+        # Just spinner
+        live.update(Spinner("dots", style="cyan"))
+
+
 async def stream_completion(
     provider: ProviderRouter,
     messages: list[dict[str, Any]],
@@ -53,9 +87,19 @@ async def stream_completion(
     collected_content: list[str] = []
     collected_tool_calls: dict[int, dict[str, Any]] = {}
 
+    # Batching state
+    last_update_time = time.time()
+    UPDATE_INTERVAL = 0.05  # 50ms = 20 updates/sec max
+
     spinner = Spinner("dots", text="Thinking...", style="cyan")
 
-    with Live(renderable=spinner, console=console, refresh_per_second=10, transient=True) as live:
+    with Live(
+        renderable=spinner,
+        console=console,
+        refresh_per_second=20,
+        transient=True,
+        vertical_overflow="visible",
+    ) as live:
         async for chunk in provider.complete(
             messages=messages,
             model=model,
@@ -69,36 +113,25 @@ async def stream_completion(
             delta = chunk.choices[0].delta
 
             # Collect content
+            content_updated = False
             if delta.content:
                 collected_content.append(delta.content)
-                # Show content + spinner at the bottom while streaming
-                display_content = _clean_content("".join(collected_content))
-                if display_content.strip():
-                    live.update(Group(Markdown(display_content), Spinner("dots", style="cyan")))
-                else:
-                    live.update(Spinner("dots", style="cyan"))
+                content_updated = True
 
             # Collect tool calls (streamed incrementally)
             if delta.tool_calls:
                 _collect_tool_calls(delta.tool_calls, collected_tool_calls)
-                # If we are only getting tool calls now (content finished or interleaved)
-                # Ensure we still show the spinner with context
-                display_content = _clean_content("".join(collected_content))
-                if display_content.strip():
-                    live.update(
-                        Group(
-                            Markdown(display_content),
-                            Text("🔨 Preparing tool execution...", style="dim cyan"),
-                            Spinner("dots", style="cyan"),
-                        )
-                    )
-                else:
-                    live.update(
-                        Group(
-                            Text("🔨 Preparing tool execution...", style="dim cyan"),
-                            Spinner("dots", style="cyan"),
-                        )
-                    )
+                content_updated = True
+
+            # Batched update: only update if enough time passed
+            if content_updated:
+                now = time.time()
+                if now - last_update_time >= UPDATE_INTERVAL:
+                    _update_display(live, collected_content, collected_tool_calls)
+                    last_update_time = now
+
+        # Final update after stream completes
+        _update_display(live, collected_content, collected_tool_calls)
 
     # Print final content
     full_content = "".join(collected_content)

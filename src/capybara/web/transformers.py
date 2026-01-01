@@ -7,7 +7,6 @@ def transform_provider_for_yaml(ui_provider: dict) -> ProviderConfig:
     """Transform UI provider to YAML ProviderConfig."""
     model = ui_provider["model"]
     provider_type = ui_provider.get("type", "custom")
-    openai_compatible = ui_provider.get("openai_compatible", False)
 
     # Clean model name of prefixes for storage if we have explicit type
     # This keeps the config.yaml clean as requested by user
@@ -57,18 +56,18 @@ def transform_provider_for_ui(provider: ProviderConfig) -> dict:
     # Cleaning model name for UI display happens automatically since we store it clean now.
     # But if reading old config with prefixes:
     if model.startswith("openai/"):
-         model = model[7:]
+        model = model[7:]
     elif model.startswith("anthropic/"):
-         model = model[10:]
+        model = model[10:]
     elif model.startswith("gemini/"):
-         model = model[7:]
+        model = model[7:]
 
     # determine openai_compatible flag for UI
     if provider_type in ["proxy", "custom", "litellm"]:
         openai_compatible = True
     elif provider_type == "openai":
-         # Standard OpenAI is technically compatible but UI toggle usually implies "Custom Endpoint"
-         openai_compatible = False
+        # Standard OpenAI is technically compatible but UI toggle usually implies "Custom Endpoint"
+        openai_compatible = False
 
     return {
         "type": provider_type,

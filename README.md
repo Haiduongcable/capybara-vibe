@@ -164,7 +164,7 @@ You can configure the following providers:
 
 ### Free AI Subscription Setup
 
-To use free AI subscriptions (e.g., OpenAI Codex, Google Antigravity), please refer to our [Setup Guide](Guide.md).
+To use free AI subscriptions (e.g., OpenAI Codex, Google Antigravity), please refer to our [Setup Guide](GUIDE.md).
 
 --------------------------------------------------------------------------------
 

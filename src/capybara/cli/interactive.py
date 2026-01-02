@@ -170,6 +170,7 @@ async def interactive_chat(
     with console.status("[dim]Loading engine...[/dim]", spinner="dots"):
         # Delayed imports for performance
         from capybara.core.agent import Agent, AgentConfig
+        from capybara.core.config import get_default_bash_allowlist
         from capybara.core.utils.context import build_project_context
         from capybara.core.utils.interrupts import AgentInterruptException
         from capybara.core.utils.prompts import build_system_prompt
@@ -178,7 +179,6 @@ async def interactive_chat(
         from capybara.tools.mcp.bridge import MCPBridge
         from capybara.tools.registry import ToolRegistry
         from capybara.ui.todo_panel import PersistentTodoPanel
-        from capybara.core.config import get_default_bash_allowlist
 
         # Apply Mode Logic
         if mode != "standard":
@@ -189,7 +189,8 @@ async def interactive_chat(
                 bash_allowlist = get_default_bash_allowlist()
                 config.tools.security["bash"] = ToolSecurityConfig(
                     permission=ToolPermission.ASK,
-                    allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist] + [rf"^{cmd}$" for cmd in bash_allowlist],
+                    allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist]
+                    + [rf"^{cmd}$" for cmd in bash_allowlist],
                 )
                 for tool_name in ["write_file", "edit_file", "delete_file"]:
                     config.tools.security[tool_name] = ToolSecurityConfig(
@@ -208,7 +209,8 @@ async def interactive_chat(
                 bash_allowlist = get_default_bash_allowlist()
                 config.tools.security["bash"] = ToolSecurityConfig(
                     permission=ToolPermission.ASK,
-                    allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist] + [rf"^{cmd}$" for cmd in bash_allowlist],
+                    allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist]
+                    + [rf"^{cmd}$" for cmd in bash_allowlist],
                     denylist=[
                         r"rm\s",  # Delete files
                         r"mv\s",  # Move files

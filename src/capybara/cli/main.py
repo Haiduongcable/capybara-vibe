@@ -252,7 +252,8 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
         bash_allowlist = get_default_bash_allowlist()
         cfg.tools.security["bash"] = ToolSecurityConfig(
             permission=ToolPermission.ASK,
-            allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist] + [rf"^{cmd}$" for cmd in bash_allowlist],
+            allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist]
+            + [rf"^{cmd}$" for cmd in bash_allowlist],
         )
         for tool_name in ["write_file", "edit_file", "delete_file"]:
             cfg.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)

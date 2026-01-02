@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "capybara-vibe"
-version = "0.2.0"
+version = "0.2.1"
 description = "Multi-Agent AI CLI Coding Assistant based on Long Chain-of-Thought (CoT) agents and Smart Memory."
 readme = "README.md"
 requires-python = ">=3.10"

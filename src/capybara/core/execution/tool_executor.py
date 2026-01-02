@@ -547,6 +547,16 @@ class ToolExecutor:
 
     def _display_tool_args(self, name: str, args: dict[str, Any]) -> None:
         """Display tool arguments above Live region."""
+        # Special handling for edit_file: only show path, hide old_string/new_string
+        if name == "edit_file":
+            path = args.get("path", "unknown")
+            replace_all = args.get("replace_all", False)
+            if replace_all:
+                self.console.print(f"[dim]> {name}(path='{path}', replace_all=True)[/dim]")
+            else:
+                self.console.print(f"[dim]> {name}(path='{path}')[/dim]")
+            return
+
         display_args = []
         for k, v in args.items():
             v_str = str(v)

@@ -241,15 +241,20 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
     tools.merge(default_tools)
 
     # Apply Mode Logic (Duplicate of interactive.py logic - should refactor, but kept inline for now)
-    from capybara.core.config import ToolPermission, ToolSecurityConfig
+    from capybara.core.config import ToolPermission, ToolSecurityConfig, get_default_bash_allowlist
 
     if mode == "plan":
         # Remove dangerous tools from registry to hide them
         for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
             tools.unregister(tool_name)
     elif mode == "safe":
-        # Force ASK permission
-        for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
+        # Force ASK permission, but auto-approve safe bash commands
+        bash_allowlist = get_default_bash_allowlist()
+        cfg.tools.security["bash"] = ToolSecurityConfig(
+            permission=ToolPermission.ASK,
+            allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist] + [rf"^{cmd}$" for cmd in bash_allowlist],
+        )
+        for tool_name in ["write_file", "edit_file", "delete_file"]:
             cfg.tools.security[tool_name] = ToolSecurityConfig(permission=ToolPermission.ASK)
 
     # Setup MCP integration if enabled

@@ -355,15 +355,21 @@ class ToolExecutor:
             return False
 
         if permission == ToolPermission.ASK:
+            # For bash tool, check against the command field directly
+            # For other tools, check against the entire args dict string
+            if name == "bash" and "command" in args:
+                check_str = args["command"]
+            else:
+                check_str = str(args)
+
             # Check if allowlist matches (would auto-approve)
-            args_str = str(args)
             for pattern in security_config.allowlist:
-                if re.search(pattern, args_str):
+                if re.search(pattern, check_str):
                     return False
 
             # Check if denylist matches (would auto-deny)
             for pattern in security_config.denylist:
-                if re.search(pattern, args_str):
+                if re.search(pattern, check_str):
                     return False
 
             # Check if approve_all is set
@@ -396,15 +402,21 @@ class ToolExecutor:
             if self._approve_all:
                 return True
 
+            # For bash tool, check against the command field directly
+            # For other tools, check against the entire args dict string
+            if name == "bash" and "command" in args:
+                check_str = args["command"]
+            else:
+                check_str = str(args)
+
             # Check allowlist
-            args_str = str(args)
             for pattern in security_config.allowlist:
-                if re.search(pattern, args_str):
+                if re.search(pattern, check_str):
                     return True
 
             # Check denylist
             for pattern in security_config.denylist:
-                if re.search(pattern, args_str):
+                if re.search(pattern, check_str):
                     return False
 
             # Ask user

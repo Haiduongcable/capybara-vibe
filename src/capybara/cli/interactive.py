@@ -178,14 +178,20 @@ async def interactive_chat(
         from capybara.tools.mcp.bridge import MCPBridge
         from capybara.tools.registry import ToolRegistry
         from capybara.ui.todo_panel import PersistentTodoPanel
+        from capybara.core.config import get_default_bash_allowlist
 
         # Apply Mode Logic
         if mode != "standard":
             console.print(f"[bold yellow]Activating mode: {mode.upper()}[/bold yellow]")
 
             if mode == "safe":
-                # Force ASK for everything
-                for tool_name in ["bash", "write_file", "edit_file", "delete_file"]:
+                # Force ASK for everything, but auto-approve safe bash commands
+                bash_allowlist = get_default_bash_allowlist()
+                config.tools.security["bash"] = ToolSecurityConfig(
+                    permission=ToolPermission.ASK,
+                    allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist] + [rf"^{cmd}$" for cmd in bash_allowlist],
+                )
+                for tool_name in ["write_file", "edit_file", "delete_file"]:
                     config.tools.security[tool_name] = ToolSecurityConfig(
                         permission=ToolPermission.ASK
                     )
@@ -198,9 +204,11 @@ async def interactive_chat(
                     )
 
             elif mode == "plan":
-                # Configure bash with read-only denylist
+                # Configure bash with read-only denylist and safe commands allowlist
+                bash_allowlist = get_default_bash_allowlist()
                 config.tools.security["bash"] = ToolSecurityConfig(
                     permission=ToolPermission.ASK,
+                    allowlist=[rf"^{cmd}\s" for cmd in bash_allowlist] + [rf"^{cmd}$" for cmd in bash_allowlist],
                     denylist=[
                         r"rm\s",  # Delete files
                         r"mv\s",  # Move files

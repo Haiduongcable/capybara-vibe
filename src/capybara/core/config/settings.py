@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import yaml
@@ -5,6 +6,31 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from capybara.tools.base import ToolPermission, ToolSecurityConfig  # noqa: F401
+
+
+def get_default_bash_allowlist() -> list[str]:
+    """Get default safe bash commands that don't require user approval.
+
+    These are read-only informational commands that are safe to execute
+    without user permission in safe and plan modes.
+    """
+    common = ["echo", "find", "git diff", "git log", "git status", "tree", "whoami"]
+
+    if sys.platform == "win32":
+        return common + ["dir", "findstr", "more", "type", "ver", "where"]
+    else:
+        return common + [
+            "cat",
+            "file",
+            "head",
+            "ls",
+            "pwd",
+            "stat",
+            "tail",
+            "uname",
+            "wc",
+            "which",
+        ]
 
 
 class ToolsConfig(BaseModel):

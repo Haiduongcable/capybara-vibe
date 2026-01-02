@@ -190,15 +190,18 @@ def register_todo_tool(registry: ToolRegistry) -> None:
         # User constraint: "don't update for processed task (old task)"
         # But maybe they want to reopen? Assuming strict "don't update processed" means if it's completed, don't touch.
         # However, the user might want to correct a mistake. Let's strictly follow "don't update for processed task"
-        if todo_to_update.status == TodoStatus.COMPLETED or todo_to_update.status == TodoStatus.CANCELLED:
-             return f"Error: Cannot update todo '{id}' because it is already {todo_to_update.status.value}. Use write_todo to start new tasks if needed."
+        if (
+            todo_to_update.status == TodoStatus.COMPLETED
+            or todo_to_update.status == TodoStatus.CANCELLED
+        ):
+            return f"Error: Cannot update todo '{id}' because it is already {todo_to_update.status.value}. Use write_todo to start new tasks if needed."
 
         try:
             # Validate in_progress constraint if we are setting to in_progress
             if status == TodoStatus.IN_PROGRESS and todo_to_update.status != TodoStatus.IN_PROGRESS:
                 current_in_progress = [t for t in _TODOS if t.status == TodoStatus.IN_PROGRESS]
                 if current_in_progress:
-                     return (
+                    return (
                         f"Error: Only 1 task can be 'in_progress' at a time. "
                         f"Task '{current_in_progress[0].id}' is currently in_progress. "
                         f"Complete or cancel it before starting '{id}'."
@@ -207,7 +210,7 @@ def register_todo_tool(registry: ToolRegistry) -> None:
             # Update the status
             new_status = TodoStatus(status)
             updated_todo = todo_to_update.model_copy(update={"status": new_status})
-            
+
             _TODOS[todo_index] = updated_todo
 
             # Notify state manager
@@ -222,7 +225,7 @@ def register_todo_tool(registry: ToolRegistry) -> None:
             )
 
         except ValueError:
-             return f"Error: Invalid status '{status}'."
+            return f"Error: Invalid status '{status}'."
         except Exception as e:
             return f"Error updating todo '{id}': {e}"
 
@@ -237,7 +240,7 @@ def register_todo_tool(registry: ToolRegistry) -> None:
         global _TODOS
         count = len(_TODOS)
         _TODOS = []
-        
+
         # Notify state manager
         _notify_state_change([])
 

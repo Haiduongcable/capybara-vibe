@@ -2,7 +2,7 @@
 
 Capybara Vibe is a powerful Multi-Agent CLI Coding tool designed to assist developers with coding tasks. It leverages multiple AI providers to offer a versatile and efficient coding companion. Whether you need a quick code snippet, a complex refactor, or a long-form planning session, Capybara Vibe adapts to your workflow.
 
-📚 **[Visit Official Documentation](https://haiduongcable.github.io/capybara-doc)** | 📦 **[Download Releases](https://github.com/Haiduongcable/capybara-vibe/releases)**
+**[Visit Official Documentation](https://haiduongcable.github.io/capybara-doc)** | **[Download Releases](https://github.com/Haiduongcable/capybara-vibe/releases)**
 
 *I write this README by myself, no LLM, no any icon bla bla, trust me bro*
 ## VISUAL OVERVIEW

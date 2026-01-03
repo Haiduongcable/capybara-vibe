@@ -1,0 +1,163 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          pip install pyinstaller
+
+      - name: Build Binary (Linux)
+        run: |
+          pyinstaller capybara.spec --clean --noconfirm
+          # Verify binary
+          ./dist/capybara --version
+
+      - name: Install FPM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev
+          sudo gem install fpm
+
+      - name: Get Version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT || echo "VERSION=0.0.0-dev" >> $GITHUB_OUTPUT
+
+      - name: Package Deb
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          mkdir -p package/usr/local/bin
+          cp dist/capybara package/usr/local/bin/
+          
+          fpm -s dir -t deb \
+            -n capybara-vibe \
+            -v ${VERSION} \
+            -a amd64 \
+            -m "Hai Duong <haiduong.nguyen2712@gmail.com>" \
+            --url "https://github.com/Haiduongcable/CapybaraVibeCLI" \
+            --description "Multi-Agent AI CLI Coding Assistant" \
+            --vendor "Capybara Vibe" \
+            package/usr/local/bin/capybara=/usr/local/bin/capybara
+
+      - name: Package RPM
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          fpm -s dir -t rpm \
+            -n capybara-vibe \
+            -v ${VERSION} \
+            -a x86_64 \
+            -m "Hai Duong <haiduong.nguyen2712@gmail.com>" \
+            --url "https://github.com/Haiduongcable/CapybaraVibeCLI" \
+            --description "Multi-Agent AI CLI Coding Assistant" \
+            --vendor "Capybara Vibe" \
+            package/usr/local/bin/capybara=/usr/local/bin/capybara
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            dist/capybara
+            *.deb
+            *.rpm
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          pip install pyinstaller
+
+      - name: Build Binary (Mac)
+        run: |
+          pyinstaller capybara.spec --clean --noconfirm
+          # Verify binary
+          ./dist/capybara --version
+
+      - name: Upload Mac Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-artifacts
+          path: dist/capybara
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          pip install pyinstaller
+
+      - name: Build Binary (Windows)
+        run: |
+          pyinstaller capybara.spec --clean --noconfirm
+          # Verify binary
+          .\dist\capybara.exe --version
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: dist/capybara.exe
+
+  release:
+    needs: [build-linux, build-mac, build-windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/linux-artifacts/*
+            artifacts/mac-artifacts/*
+            artifacts/windows-artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

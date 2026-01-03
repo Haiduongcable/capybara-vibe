@@ -1,8 +1,8 @@
 # CAPYBARA VIBE
 
-## I write this README by myself, no LLM, no any icon bla bla, trust me bro
 Capybara Vibe is a powerful Multi-Agent CLI Coding tool designed to assist developers with coding tasks. It leverages multiple AI providers to offer a versatile and efficient coding companion. Whether you need a quick code snippet, a complex refactor, or a long-form planning session, Capybara Vibe adapts to your workflow. 
 
+*I write this README by myself, no LLM, no any icon bla bla, trust me bro*
 ## VISUAL OVERVIEW
 
 <table border="1" cellspacing="0" cellpadding="10" width="100%">
@@ -66,7 +66,49 @@ Capybara Vibe is a powerful Multi-Agent CLI Coding tool designed to assist devel
 
 ## INSTALLATION
 
-### 1. Install via Pip
+### 1. Download Pre-built Binaries (Recommended)
+
+**Download the latest release for your platform:**
+
+👉 **[Download from GitHub Releases](https://github.com/Haiduongcable/capybara-vibe/releases)**
+
+#### macOS
+
+```bash
+# Download capybara binary for macOS
+# Extract and run:
+chmod +x capybara
+./capybara --version
+
+# Optional: Move to PATH
+sudo mv capybara /usr/local/bin/
+```
+
+#### Ubuntu/Debian
+
+```bash
+# Download the .deb file and install:
+sudo dpkg -i capybara-vibe_*_amd64.deb
+capybara --version
+```
+
+#### Fedora/RHEL/CentOS
+
+```bash
+# Download the .rpm file and install:
+sudo rpm -i capybara-vibe-*.x86_64.rpm
+capybara --version
+```
+
+#### Windows
+
+```powershell
+# Download capybara.exe
+# Run from PowerShell or Command Prompt:
+.\capybara.exe --version
+```
+
+### 2. Install via Pip
 
 Package is available on [PyPI](https://pypi.org/project/capybara-vibe/).
 
@@ -74,7 +116,7 @@ Package is available on [PyPI](https://pypi.org/project/capybara-vibe/).
 pip install capybara-vibe
 ```
 
-### 2. Install from Source
+### 3. Install from Source
 
 ```bash
 git clone https://github.com/yourusername/capybara-vibe-coding
@@ -176,4 +218,4 @@ To use free AI subscriptions (e.g., OpenAI Codex, Google Antigravity), please re
 
 MIT License
 
-Also all of these were written by myself!!
+*Also all of these were written by myself!!*

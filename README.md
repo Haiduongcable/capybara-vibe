@@ -2,6 +2,8 @@
 
 <p align="center">
   <b>Multi-Agent CLI Coding Assistant powered by AI</b>
+  <br><br>
+  <a href="https://haiduongcable.github.io/capybara-doc">Official Documentation Page</a>
 </p>
 
 <p align="center">

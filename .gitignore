@@ -9,7 +9,6 @@ plans/
 __pypackages__/
 .DS_Store
 .vscode/
-docs/
 .idea/
 .env
 .env.*

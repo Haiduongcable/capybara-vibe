@@ -1,4 +1,4 @@
-# Capybara Vibe
+<h1 align="center">Capybara Vibe</h1>
 
 <p align="center">
   <b>Multi-Agent CLI Coding Assistant powered by AI</b>

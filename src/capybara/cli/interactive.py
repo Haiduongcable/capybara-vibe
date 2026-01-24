@@ -1,7 +1,6 @@
 """Interactive chat with prompt_toolkit."""
 
 import os
-import random
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -36,28 +35,6 @@ from capybara.memory.storage import ConversationStorage
 
 console = Console()
 logger = get_logger(__name__)
-
-# Random agent names for thinking message
-AGENT_NAMES = [
-    "Nova",
-    "Atlas",
-    "Luna",
-    "Orion",
-    "Phoenix",
-    "Sage",
-    "Echo",
-    "Zara",
-    "Nexus",
-    "Cipher",
-    "Aurora",
-    "Titan",
-    "Vega",
-    "Iris",
-    "Quantum",
-    "Stella",
-    "Neo",
-    "Lyra",
-]
 
 
 def _get_display_info(config: CapybaraConfig, model: str) -> tuple[str, str]:
@@ -247,6 +224,15 @@ async def interactive_chat(
         # Initialize storage and session manager BEFORE agent creation
         storage = ConversationStorage()
         await storage.initialize()
+
+        # Create parent session in database
+        await storage.create_session(
+            session_id=session_id,
+            model=model,
+            title=f"Chat session",  # Will be updated with first user input
+            agent_mode="parent",
+        )
+
         session_manager = SessionManager(storage)
 
         # Setup tools registry WITHOUT delegation first
@@ -365,6 +351,7 @@ async def interactive_chat(
 
     # Main loop
     first_run = True
+    is_first_message = True  # Track if this is the first user message
     try:
         while True:
             try:
@@ -391,12 +378,24 @@ async def interactive_chat(
                     console.print(f"[dim]Token count: {memory.get_token_count():,}[/dim]")
                     continue
 
-                # Show thinking message via spinner in stream_completion
-                # agent_name = random.choice(AGENT_NAMES)
-                # console.print(f"[dim italic]{agent_name} thinking...[/dim italic]")
+                # Save user message to database
+                await storage.save_message(session_id, {"role": "user", "content": user_input})
+
+                # Update session title with first user message (truncated)
+                if is_first_message:
+                    title = user_input[:80] + "..." if len(user_input) > 80 else user_input
+                    await storage.update_session_title(session_id, title)
+                    is_first_message = False
+
+                # Thinking indicator handled by streaming spinner
 
                 # Run agent
-                await agent.run(user_input)
+                response = await agent.run(user_input)
+
+                # Save assistant response to database
+                if response:
+                    await storage.save_message(session_id, {"role": "assistant", "content": response})
+
                 console.print()  # Newline after response
 
                 # Render todo panel if it has todos
@@ -432,6 +431,8 @@ async def interactive_chat_with_session(
     config: CapybaraConfig | None = None,
     initial_messages: list[dict] | None = None,
     storage: ConversationStorage | None = None,
+    mode: str = "standard",
+    initial_message: str | None = None,
 ) -> None:
     """Interactive chat with session persistence.
 
@@ -442,6 +443,8 @@ async def interactive_chat_with_session(
         config: Optional configuration object
         initial_messages: Optional initial messages to load
         storage: Optional storage instance (will create if not provided)
+        mode: Operation mode (standard/safe/plan/auto)
+        initial_message: Optional first message to send automatically
     """
     from capybara.core.config import load_config
 
@@ -451,14 +454,31 @@ async def interactive_chat_with_session(
     # Show UI immediately
     _print_welcome_panel(config, model, session_id=session_id)
 
+    # Display previous conversation history
+    if initial_messages:
+        console.print("\n[dim]─── Previous Conversation ───[/dim]\n")
+        for msg in initial_messages:
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            if role == "user":
+                console.print(f"[bold cyan]>>> {content}[/bold cyan]")
+            elif role == "assistant":
+                # Truncate long assistant responses for display
+                display_content = content[:500] + "..." if len(content) > 500 else content
+                console.print(f"[dim]{display_content}[/dim]")
+            console.print()  # Blank line between messages
+        console.print("[dim]─── Continue from here ───[/dim]\n")
+
     with console.status("[dim]Loading session engine...[/dim]", spinner="dots"):
         from capybara.core.agent import Agent, AgentConfig
+        from capybara.core.delegation.session_manager import SessionManager
         from capybara.core.utils.context import build_project_context
+        from capybara.core.utils.interrupts import AgentInterruptException
         from capybara.core.utils.prompts import build_system_prompt
         from capybara.memory.window import ConversationMemory, MemoryConfig
-        from capybara.tools.builtin import registry as default_tools
         from capybara.tools.mcp.bridge import MCPBridge
         from capybara.tools.registry import ToolRegistry
+        from capybara.ui.todo_panel import PersistentTodoPanel
 
         # Initialize storage if not provided
         if storage is None:
@@ -467,23 +487,21 @@ async def interactive_chat_with_session(
         elif not storage._initialized:
             await storage.initialize()
 
-        # Setup tools registry with builtin tools
-        tools = ToolRegistry()
-        tools.merge(default_tools)
+        # Initialize session manager
+        session_manager = SessionManager(storage)
 
-        # Setup MCP integration if enabled
-        mcp_bridge = None
-        if config.mcp.enabled:
-            try:
-                mcp_bridge = MCPBridge(config.mcp)
-                connected = await mcp_bridge.connect_all()
-                if connected > 0:
-                    mcp_count = mcp_bridge.register_with_registry(tools)
-                    console.print(
-                        f"[dim]Connected to {connected} MCP servers ({mcp_count} tools)[/dim]"
-                    )
-            except Exception as e:
-                console.print(f"[yellow]Warning: MCP setup failed: {e}[/yellow]")
+        # Setup tools registry WITHOUT delegation first
+        tools = ToolRegistry()
+        from capybara.tools.builtin import register_builtin_tools
+
+        # Register basic tools (no delegation yet, parent_agent=None)
+        register_builtin_tools(
+            tools,
+            parent_session_id=None,  # Don't register solve_task yet
+            parent_agent=None,
+            session_manager=None,
+            storage=None,
+        )
 
         # Setup agent with loaded messages and provider router
         from capybara.providers.router import ProviderRouter
@@ -492,25 +510,79 @@ async def interactive_chat_with_session(
         memory_config = MemoryConfig(max_tokens=config.memory.max_tokens)
         memory = ConversationMemory(config=memory_config)
 
-        # Set system prompt (resumed sessions use standard mode)
+        # Set system prompt (resumed sessions use the passed mode)
         project_context = await build_project_context()
         memory.set_system_prompt(
-            build_system_prompt(project_context=project_context, mode="standard")
+            build_system_prompt(project_context=project_context, mode=mode)
         )
 
         # Load initial messages if provided
         if initial_messages:
             memory.add_batch(initial_messages)
 
-        provider = ProviderRouter(providers=config.providers, default_model=model)
-    agent = Agent(
-        config=agent_config,
-        memory=memory,
-        tools=tools,
-        console=console,
-        provider=provider,
-        tools_config=config.tools,
-    )
+        provider = ProviderRouter(
+            providers=config.providers,
+            default_model=model,
+            session_id=session_id,  # Enable API request logging
+        )
+        agent = Agent(
+            config=agent_config,
+            memory=memory,
+            tools=tools,
+            console=console,
+            provider=provider,
+            tools_config=config.tools,
+            session_id=session_id,  # Enable session-based logging
+        )
+
+        # NOW register sub-agent tool with actual agent reference
+        from capybara.tools.builtin.delegation import register_sub_agent_tool
+
+        register_sub_agent_tool(
+            tools,
+            parent_session_id=session_id,
+            parent_agent=agent,
+            session_manager=session_manager,
+            storage=storage,
+        )
+
+        # Filter tools by mode AFTER all tools registered
+        agent.tools = tools.filter_by_mode(agent_config.mode)
+        agent.tool_executor.tools = agent.tools  # Update executor reference
+
+        # Setup MCP integration if enabled
+        mcp_bridge = None
+        if config.mcp.enabled:
+            try:
+                mcp_bridge = MCPBridge(config.mcp)
+                connected = await mcp_bridge.connect_all()
+                if connected > 0:
+                    mcp_count = mcp_bridge.register_with_registry(agent.tools)
+                    console.print(
+                        f"[dim]Connected to {connected} MCP servers ({mcp_count} tools)[/dim]"
+                    )
+            except Exception as e:
+                console.print(f"[yellow]Warning: MCP setup failed: {e}[/yellow]")
+
+    # Initialize persistent todo panel
+    todo_panel = PersistentTodoPanel(visible=True)
+
+    def render_todo_panel():
+        """Render todo panel if it has content."""
+        if panel_content := todo_panel.render():
+            console.print(panel_content)
+
+    # Subscribe to todo state changes and render immediately
+    def on_todos_changed(todos):
+        """Callback when todos are updated - render panel immediately."""
+        if todos:  # Only render if there are todos
+            console.print()  # Add newline for spacing
+            render_todo_panel()
+            console.print()  # Add newline after panel
+
+    from capybara.tools.builtin.todo_state import todo_state
+
+    todo_state.subscribe(on_todos_changed)
 
     # Setup prompt_toolkit
     history_file = Path.home() / ".capybara" / "history"
@@ -529,8 +601,16 @@ async def interactive_chat_with_session(
         """Handle Ctrl+C gracefully."""
         raise KeyboardInterrupt()
 
+    @bindings.add("c-t")
+    def toggle_todos(event) -> None:
+        """Toggle todo panel visibility (Ctrl+T)."""
+        todo_panel.toggle_visibility()
+        logger.info(f"Todo panel visibility toggled: {todo_panel.visible}")
+
     # Welcome message already shown at start
     # _print_welcome_panel(config, model, session_id=session_id)
+
+    logger.info(f"Resumed chat session with model: {model}, session_id: {session_id}")
 
     # Main loop with persistence
     try:
@@ -555,26 +635,38 @@ async def interactive_chat_with_session(
                 # Save user message
                 await storage.save_message(session_id, {"role": "user", "content": user_input})
 
-                # Show thinking message with random agent name
-                agent_name = random.choice(AGENT_NAMES)
-                console.print(f"[dim italic]{agent_name} thinking...[/dim italic]")
+                # Thinking indicator handled by streaming spinner
 
                 # Run agent
                 response = await agent.run(user_input)
 
                 # Save assistant response
-                await storage.save_message(session_id, {"role": "assistant", "content": response})
+                if response:
+                    await storage.save_message(session_id, {"role": "assistant", "content": response})
 
                 console.print()  # Newline after response
 
+                # Render todo panel if it has todos
+                render_todo_panel()
+
             except KeyboardInterrupt:
                 console.print("\n[yellow]Interrupted[/yellow]")
+                # Still show todo panel even if interrupted
+                render_todo_panel()
                 continue
             except EOFError:
                 break
+            except AgentInterruptException:
+                console.print("\n[yellow]Agent interrupted by user[/yellow]")
+                # Show todo panel after agent interruption
+                render_todo_panel()
+                continue
             except Exception as e:
                 console.print(f"[red]Error: {e}[/red]")
     finally:
+        # Clean up todo panel and state subscriptions
+        todo_state.unsubscribe(on_todos_changed)
+        todo_panel.cleanup()
         # Clean up MCP connections
         if mcp_bridge:
             await mcp_bridge.disconnect_all()

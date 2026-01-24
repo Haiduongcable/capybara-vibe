@@ -44,6 +44,7 @@ def cli(ctx: click.Context, mode: str) -> None:
 @cli.command()
 @click.option("--model", "-m", default=None, help="Model to use (default from config)")
 @click.option("--no-stream", is_flag=True, help="Disable streaming output")
+@click.option("--continue", "-c", "continue_session", is_flag=True, help="Continue latest session")
 @click.option(
     "--mode",
     type=click.Choice(["standard", "safe", "plan", "auto"]),
@@ -51,13 +52,18 @@ def cli(ctx: click.Context, mode: str) -> None:
     help="Operation mode (standard, safe, plan, auto)",
 )
 @click.argument("message", required=False)
-def chat(message: str | None, model: str | None, no_stream: bool, mode: str) -> None:
+def chat(message: str | None, model: str | None, no_stream: bool, continue_session: bool, mode: str) -> None:
     """Start interactive chat session.
 
     Optionally provide a MESSAGE to start the conversation immediately.
+    Use --continue to resume the latest session.
     """
     _ensure_litellm()
-    asyncio.run(_chat_async(model, not no_stream, mode, message))
+
+    if continue_session:
+        asyncio.run(_continue_latest_session(model, not no_stream, mode, message))
+    else:
+        asyncio.run(_chat_async(model, not no_stream, mode, message))
 
 
 @cli.command()
@@ -201,10 +207,20 @@ def sessions() -> None:
 @cli.command()
 @click.argument("session_id")
 @click.option("--model", "-m", default=None, help="Model to use")
-def resume(session_id: str, model: str | None) -> None:
-    """Resume a previous conversation session."""
+@click.option("--no-stream", is_flag=True, help="Disable streaming")
+@click.option(
+    "--mode",
+    type=click.Choice(["standard", "safe", "plan", "auto"]),
+    default="standard",
+    help="Operation mode",
+)
+def resume(session_id: str, model: str | None, no_stream: bool, mode: str) -> None:
+    """Resume a previous conversation session.
+
+    SESSION_ID can be full UUID or just the first few characters (e.g., 'abc123').
+    """
     _ensure_litellm()
-    asyncio.run(_resume_async(session_id, model))
+    asyncio.run(_resume_async(session_id, model, not no_stream, mode))
 
 
 async def _chat_async(
@@ -301,7 +317,7 @@ async def _run_async(prompt: str, model: str | None, stream: bool, mode: str = "
 
 
 async def _list_sessions() -> None:
-    """List recent conversation sessions."""
+    """List recent conversation sessions with metadata."""
     from rich.table import Table
 
     from capybara.memory.storage import ConversationStorage
@@ -316,25 +332,112 @@ async def _list_sessions() -> None:
         return
 
     table = Table(title="Recent Sessions")
-    table.add_column("ID", style="cyan")
+    table.add_column("ID", style="cyan", width=10)
     table.add_column("Title", style="green")
-    table.add_column("Model", style="yellow")
-    table.add_column("Updated", style="dim")
+    table.add_column("Model", style="yellow", width=20)
+    table.add_column("Turns", style="dim", justify="right", width=6)
+    table.add_column("Tokens", style="dim", justify="right", width=8)
+    table.add_column("Updated", style="dim", width=16)
 
     for session in sessions:
+        session_id_short = session["id"][:8]
+
+        # Load metadata for stats
+        metadata = await storage.load_session_metadata(session["id"])
+
+        turns = "-"
+        tokens = "-"
+        if metadata:
+            stats = metadata.get("stats", {})
+            if stats.get("total_turns"):
+                turns = str(stats["total_turns"])
+
+            total_tokens = stats.get("total_prompt_tokens", 0) + stats.get("total_completion_tokens", 0)
+            if total_tokens > 0:
+                if total_tokens >= 1000:
+                    tokens = f"{total_tokens/1000:.1f}k"
+                else:
+                    tokens = str(total_tokens)
+
         table.add_row(
-            session["id"],
-            session["title"],
-            session["model"],
+            session_id_short,
+            session["title"][:40] if len(session["title"]) > 40 else session["title"],
+            session["model"][:18] if len(session["model"]) > 18 else session["model"],
+            turns,
+            tokens,
             session["updated_at"][:16],  # Trim to minute precision
         )
 
     console.print(table)
-    console.print("\n[dim]Use 'capybara resume <session_id>' to continue a session[/dim]")
+    console.print("\n[dim]Use 'capybara resume <id>' to continue a session[/dim]")
+    console.print("[dim]Use 'capybara chat --continue' to resume the latest session[/dim]")
 
 
-async def _resume_async(session_id: str, model: str | None) -> None:
-    """Resume a previous conversation session."""
+async def _resume_async(session_id: str, model: str | None, stream: bool, mode: str = "standard") -> None:
+    """Resume a previous conversation session with partial ID matching."""
+    from capybara.memory.storage import ConversationStorage
+
+    cfg = load_config()
+    model = model or cfg.default_model
+
+    storage = ConversationStorage()
+    await storage.initialize()
+
+    # Try partial ID matching
+    matched_session_id = await _find_session_by_partial_id(storage, session_id)
+
+    if not matched_session_id:
+        console.print(f"[red]No session found matching '{session_id}'[/red]")
+
+        # Show recent sessions
+        console.print("\n[dim]Recent sessions:[/dim]")
+        sessions = await storage.list_sessions(limit=5)
+        for s in sessions:
+            console.print(f"  {s['id'][:8]} - {s['title'][:50]} ({s['updated_at'][:16]})")
+        return
+
+    await _resume_session_impl(matched_session_id, model, stream, mode)
+
+
+async def _continue_latest_session(
+    model: str | None,
+    stream: bool,
+    mode: str = "standard",
+    initial_message: str | None = None,
+) -> None:
+    """Continue the latest session."""
+    from capybara.memory.storage import ConversationStorage
+
+    cfg = load_config()
+    model = model or cfg.default_model
+
+    # Find latest session
+    storage = ConversationStorage()
+    await storage.initialize()
+
+    sessions = await storage.list_sessions(limit=1)
+    if not sessions:
+        console.print("[yellow]No previous sessions found. Starting new session.[/yellow]")
+        await _chat_async(model, stream, mode, initial_message)
+        return
+
+    latest_session = sessions[0]
+    session_id = latest_session["id"]
+
+    console.print(f"[green]Continuing session {session_id[:8]}...[/green]")
+
+    # Resume session
+    await _resume_session_impl(session_id, model, stream, mode, initial_message)
+
+
+async def _resume_session_impl(
+    session_id: str,
+    model: str | None,
+    stream: bool,
+    mode: str = "standard",
+    initial_message: str | None = None,
+) -> None:
+    """Internal session resume implementation."""
     from capybara.memory.storage import ConversationStorage
 
     cfg = load_config()
@@ -343,13 +446,32 @@ async def _resume_async(session_id: str, model: str | None) -> None:
     # Load session
     storage = ConversationStorage()
     await storage.initialize()
-    messages = await storage.load_session(session_id)
 
+    # Load messages
+    messages = await storage.load_session(session_id)
     if not messages:
-        console.print(f"[red]Session '{session_id}' not found[/red]")
+        console.print(f"[red]Session '{session_id}' not found or empty[/red]")
         return
 
-    console.print(f"[green]Resuming session '{session_id}' ({len(messages)} messages)[/green]")
+    # Load metadata
+    metadata = await storage.load_session_metadata(session_id)
+
+    # Display session info
+    if metadata:
+        git_info = metadata.get("git", {})
+        stats = metadata.get("stats", {})
+
+        console.print(f"[dim]Session Info:[/dim]")
+        if git_info.get("branch"):
+            commit_short = git_info.get("commit", "unknown")[:8]
+            console.print(f"  Git: {git_info.get('branch')} @ {commit_short}")
+        if stats.get("total_turns"):
+            console.print(f"  Turns: {stats.get('total_turns')}")
+            prompt_tokens = stats.get("total_prompt_tokens", 0)
+            completion_tokens = stats.get("total_completion_tokens", 0)
+            console.print(f"  Tokens: {prompt_tokens:,} in / {completion_tokens:,} out")
+
+    console.print(f"[green]Resuming session '{session_id[:8]}' ({len(messages)} messages)[/green]\n")
 
     # Continue in interactive mode with loaded messages
     from capybara.cli.interactive import interactive_chat_with_session
@@ -357,11 +479,49 @@ async def _resume_async(session_id: str, model: str | None) -> None:
     await interactive_chat_with_session(
         session_id=session_id,
         model=model,
-        stream=True,
+        stream=stream,
         config=cfg,
         initial_messages=messages,
         storage=storage,
+        mode=mode,
+        initial_message=initial_message,
     )
+
+
+async def _find_session_by_partial_id(
+    storage,
+    partial_id: str,
+) -> str | None:
+    """Find session by partial ID match.
+
+    Args:
+        storage: ConversationStorage instance
+        partial_id: Full or partial session ID
+
+    Returns:
+        Full session ID if found, None otherwise
+    """
+    # List recent sessions
+    sessions = await storage.list_sessions(limit=100)
+
+    # Try exact match first
+    for session in sessions:
+        if session["id"] == partial_id:
+            return session["id"]
+
+    # Try prefix match
+    matches = [s for s in sessions if s["id"].startswith(partial_id)]
+
+    if len(matches) == 1:
+        return matches[0]["id"]
+    elif len(matches) > 1:
+        console.print(f"[yellow]Multiple sessions match '{partial_id}':[/yellow]")
+        for s in matches[:5]:
+            console.print(f"  {s['id'][:8]} - {s['title'][:50]}")
+        console.print("[dim]Please provide more characters to uniquely identify the session.[/dim]")
+        return None
+
+    return None
 
 
 if __name__ == "__main__":

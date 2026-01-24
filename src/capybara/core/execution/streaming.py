@@ -260,4 +260,11 @@ async def non_streaming_completion(
             for tc in choice.message.tool_calls
         ]
 
+    # Add usage stats if available
+    if hasattr(response, "usage") and response.usage:
+        message["usage"] = {
+            "prompt_tokens": getattr(response.usage, "prompt_tokens", 0),
+            "completion_tokens": getattr(response.usage, "completion_tokens", 0),
+        }
+
     return message

@@ -63,6 +63,7 @@ class ToolExecutor:
         self.execution_log = execution_log
         self.event_bus = event_bus
         self._approve_all = False  # Track "approve all" permission state
+        self.metadata_collector: Any = None  # Set by Agent if persistence enabled
 
     async def execute_tools(
         self,
@@ -150,6 +151,10 @@ class ToolExecutor:
                 self.console.print(f"[red]❌ Tool execution denied: {name}[/red]")
                 tool_statuses[tid]["status"] = "error"
 
+                # Track rejection in metadata
+                if self.metadata_collector:
+                    self.metadata_collector.update_tool_stats(rejected=1)
+
                 # Publish tool error event
                 if self.session_id and self.event_bus:
                     await self.event_bus.publish(
@@ -166,6 +171,10 @@ class ToolExecutor:
                     "tool_call_id": tid,
                     "content": "Error: Tool execution denied by user or policy.",
                 }
+
+            # Track agreement in metadata (permission was granted)
+            if self.metadata_collector:
+                self.metadata_collector.update_tool_stats(agreed=1)
 
             # Log tool execution
             if self.session_logger:
@@ -199,6 +208,10 @@ class ToolExecutor:
                     success = False
                     tool_statuses[tid]["status"] = "error"
 
+                    # Track failure in metadata
+                    if self.metadata_collector:
+                        self.metadata_collector.update_tool_stats(failed=1)
+
                     # Track error in execution log
                     if self.execution_log:
                         self.execution_log.errors.append((name, result_str))
@@ -218,6 +231,10 @@ class ToolExecutor:
                     success = True
                     tool_statuses[tid]["status"] = "done"
 
+                    # Track success in metadata
+                    if self.metadata_collector:
+                        self.metadata_collector.update_tool_stats(succeeded=1)
+
                     # Publish tool done event
                     if self.session_id and self.event_bus:
                         await self.event_bus.publish(
@@ -232,6 +249,10 @@ class ToolExecutor:
             except Exception as e:
                 tool_statuses[tid]["status"] = "error"
                 result = f"Error executing tool: {e}"
+
+                # Track failure in metadata
+                if self.metadata_collector:
+                    self.metadata_collector.update_tool_stats(failed=1)
 
                 # Log error
                 log_error(

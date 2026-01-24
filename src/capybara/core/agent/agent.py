@@ -1,6 +1,7 @@
 """Main async agent with streaming and tool calling."""
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from rich.console import Console
@@ -8,7 +9,7 @@ from rich.console import Console
 from capybara.core.agent.state_manager import AgentStateManager
 from capybara.core.agent.status import AgentState, AgentStatus
 from capybara.core.agent.ui_renderer import AgentUIRenderer
-from capybara.core.config.settings import ToolsConfig
+from capybara.core.config.settings import PersistenceConfig, ToolsConfig
 from capybara.core.delegation.event_bus import Event, EventType, get_event_bus
 from capybara.core.execution.execution_log import ExecutionLog
 from capybara.core.execution.streaming import non_streaming_completion, stream_completion
@@ -19,6 +20,8 @@ from capybara.core.logging import (
     get_session_log_manager,
     log_error,
 )
+from capybara.core.utils.session_metadata import SessionMetadataCollector
+from capybara.memory.storage import ConversationStorage
 from capybara.memory.window import ConversationMemory
 from capybara.providers.router import ProviderRouter
 from capybara.tools.base import AgentMode
@@ -58,6 +61,7 @@ class Agent:
         tools_config: ToolsConfig | None = None,
         session_id: str | None = None,
         parent_session_id: str | None = None,
+        persistence_config: PersistenceConfig | None = None,
     ) -> None:
         self.config = config
         self.memory = memory
@@ -66,8 +70,13 @@ class Agent:
         self.console = console or Console()
         self.provider = provider or ProviderRouter(default_model=config.model)
         self.tools_config = tools_config or ToolsConfig()
+        self.persistence_config = persistence_config or PersistenceConfig()
         self.session_id = session_id
         self.event_bus = get_event_bus()
+
+        # Initialize persistence components
+        self.storage: ConversationStorage | None = None
+        self.metadata_collector: SessionMetadataCollector | None = None
 
         # Create session-specific logger
         self.session_logger: SessionLoggerAdapter | None
@@ -126,6 +135,23 @@ class Agent:
             event_bus=self.event_bus,
         )
 
+        # Initialize persistence for parent agents only
+        if session_id and config.mode == AgentMode.PARENT and self.persistence_config.enabled:
+            self.storage = ConversationStorage()
+
+            if self.persistence_config.save_metadata:
+                self.metadata_collector = SessionMetadataCollector(
+                    session_id=session_id,
+                    working_dir=Path.cwd(),
+                )
+                # Pass metadata collector to tool executor for tool stats tracking
+                self.tool_executor.metadata_collector = self.metadata_collector
+
+    async def _initialize_storage(self) -> None:
+        """Initialize storage connection if enabled."""
+        if self.storage:
+            await self.storage.initialize()
+
     async def run(self, user_input: str) -> str:
         """Main agent loop with tool use.
 
@@ -135,6 +161,9 @@ class Agent:
         Returns:
             Final response from the agent
         """
+        # Initialize storage if needed
+        await self._initialize_storage()
+
         # Log to session logger if available
         if self.session_logger:
             self.session_logger.info(f"Agent run started with model: {self.config.model}")
@@ -176,6 +205,12 @@ class Agent:
                 response = await self._get_completion()
                 self.memory.add(response)
 
+                # Auto-save after turn completion
+                await self._auto_save_turn(
+                    prompt_tokens=response.get("usage", {}).get("prompt_tokens", 0),
+                    completion_tokens=response.get("usage", {}).get("completion_tokens", 0),
+                )
+
                 # Log assistant response
                 if response.get("content"):
                     if self.session_logger:
@@ -195,6 +230,11 @@ class Agent:
 
                     # Update state to completed
                     self.state_manager.update_state(AgentState.COMPLETED)
+
+                    # Mark session as ended and save final metadata
+                    if self.metadata_collector:
+                        self.metadata_collector.mark_ended()
+                        await self._save_metadata()
 
                     # Publish agent done event
                     if self.session_id:
@@ -230,6 +270,11 @@ class Agent:
             # Update state to failed
             self.state_manager.update_state(AgentState.FAILED, "Max turns exceeded")
 
+            # Mark session as ended and save final metadata
+            if self.metadata_collector:
+                self.metadata_collector.mark_ended()
+                await self._save_metadata()
+
             # Publish agent done event for max turns
             if self.session_id:
                 await self.event_bus.publish(
@@ -249,6 +294,11 @@ class Agent:
                 session_id=self.session_id,
                 agent_mode=self.config.mode.value,
             )
+
+            # Mark session as ended and save final metadata on error
+            if self.metadata_collector:
+                self.metadata_collector.mark_ended()
+                await self._save_metadata()
 
             # Publish agent done event on error
             if self.session_id:
@@ -292,6 +342,49 @@ class Agent:
                 timeout=self.config.timeout,
                 console=self.console,
             )
+
+    async def _auto_save_turn(
+        self,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+    ) -> None:
+        """Auto-save session state after a turn.
+
+        Args:
+            prompt_tokens: Number of prompt tokens used
+            completion_tokens: Number of completion tokens generated
+        """
+        if not self.storage or not self.metadata_collector:
+            return
+
+        if not self.persistence_config.auto_save:
+            return
+
+        # Calculate cost (simplified - GPT-4o pricing)
+        cost = (prompt_tokens * 0.03 / 1000) + (completion_tokens * 0.06 / 1000)
+
+        # Update metadata
+        self.metadata_collector.update_turn_stats(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cost=cost,
+        )
+
+        # Save to database
+        await self._save_metadata()
+
+    async def _save_metadata(self) -> None:
+        """Save current session metadata to storage."""
+        if not self.storage or not self.metadata_collector:
+            return
+
+        try:
+            await self.storage.save_session_metadata(
+                session_id=self.session_id,
+                metadata=self.metadata_collector.get_metadata_dict(),
+            )
+        except Exception as e:
+            logger.error(f"Failed to save session metadata: {e}")
 
     # Backward compatibility methods for internal access
     def _update_state(self, state: AgentState, action: str | None = None):

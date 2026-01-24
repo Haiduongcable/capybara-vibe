@@ -81,6 +81,20 @@ class MCPConfig(BaseModel):
     servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
 
 
+class PersistenceConfig(BaseModel):
+    """Session persistence configuration."""
+
+    enabled: bool = True
+    auto_save: bool = True
+    save_metadata: bool = True
+
+    # Metadata fields to collect (allow users to disable certain fields)
+    collect_git: bool = True
+    collect_environment: bool = True
+    collect_stats: bool = True
+    collect_tool_usage: bool = True
+
+
 class FeaturesConfig(BaseModel):
     """Feature flags for experimental/new features."""
 
@@ -109,6 +123,7 @@ class CapybaraConfig(BaseSettings):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
+    persistence: PersistenceConfig = Field(default_factory=PersistenceConfig)
     features: FeaturesConfig = Field(default_factory=FeaturesConfig)
 
     @property

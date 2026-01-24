@@ -12,6 +12,9 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue" alt="python"></a>
   <a href="https://haiduongcable.github.io/capybara-doc"><img src="https://img.shields.io/badge/docs-capybara--doc-blue" alt="docs"></a>
   <a href="https://github.com/Haiduongcable/capybara-vibe/releases"><img src="https://img.shields.io/badge/releases-download-orange" alt="releases"></a>
+  <a href="https://pepy.tech/projects/capybara-vibe"><img src="https://static.pepy.tech/badge/capybara-vibe/week" alt="weekly downloads"></a>
+  <a href="https://pepy.tech/projects/capybara-vibe"><img src="https://static.pepy.tech/badge/capybara-vibe/month" alt="monthly downloads"></a>
+  <a href="https://pepy.tech/projects/capybara-vibe"><img src="https://static.pepy.tech/badge/capybara-vibe" alt="total downloads"></a>
 </p>
 
 <p align="center">

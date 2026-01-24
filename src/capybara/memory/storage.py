@@ -7,6 +7,10 @@ from typing import Any
 
 import aiosqlite
 
+from capybara.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class ConversationStorage:
     """SQLite-based conversation persistence."""
@@ -72,6 +76,16 @@ class ConversationStorage:
                 CREATE INDEX IF NOT EXISTS idx_events_session
                 ON session_events(session_id, created_at)
             """)
+
+            # Add metadata column if it doesn't exist (migration)
+            cursor = await db.execute("PRAGMA table_info(sessions)")
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+
+            if "metadata" not in column_names:
+                await db.execute("ALTER TABLE sessions ADD COLUMN metadata TEXT DEFAULT NULL")
+                logger.info("Added metadata column to sessions table")
+
             await db.commit()
         self._initialized = True
 
@@ -222,7 +236,7 @@ class ConversationStorage:
         session_id: str,
         event_type: str,
         tool_name: str | None = None,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Log event for progress tracking."""
         await self._init_db()
@@ -260,3 +274,81 @@ class ConversationStorage:
             events.append(event)
 
         return events
+
+    async def save_session_metadata(
+        self,
+        session_id: str,
+        metadata: dict[str, Any],
+    ) -> None:
+        """Save or update session metadata.
+
+        Args:
+            session_id: Session ID
+            metadata: Metadata dict (will be JSON-serialized)
+
+        Raises:
+            ValueError: If metadata cannot be serialized to JSON or exceeds size limit
+            RuntimeError: If session does not exist
+        """
+        await self._init_db()
+
+        # Validate JSON serializability and size
+        try:
+            metadata_json = json.dumps(metadata)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Metadata is not JSON-serializable: {e}") from e
+
+        # Enforce 1MB size limit
+        metadata_size = len(metadata_json.encode('utf-8'))
+        if metadata_size > 1_048_576:  # 1MB
+            raise ValueError(
+                f"Metadata too large: {metadata_size} bytes (max 1MB)"
+            )
+
+        now = datetime.now(timezone.utc).isoformat()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "UPDATE sessions SET metadata = ?, updated_at = ? WHERE id = ?",
+                (metadata_json, now, session_id),
+            )
+            await db.commit()
+
+            # Verify session exists
+            if cursor.rowcount == 0:
+                raise RuntimeError(f"Session '{session_id}' not found")
+
+    async def load_session_metadata(
+        self,
+        session_id: str,
+    ) -> dict[str, Any] | None:
+        """Load session metadata.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Metadata dict or None if not found/empty
+
+        Raises:
+            ValueError: If metadata JSON is corrupted
+        """
+        await self._init_db()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT metadata FROM sessions WHERE id = ?",
+                (session_id,),
+            )
+            row = await cursor.fetchone()
+
+        if not row or not row["metadata"]:
+            return None
+
+        try:
+            result: dict[str, Any] = json.loads(row["metadata"])
+            return result
+        except json.JSONDecodeError as e:
+            logger.error(f"Corrupted metadata for session {session_id}: {e}")
+            raise ValueError(f"Corrupted metadata JSON for session {session_id}") from e

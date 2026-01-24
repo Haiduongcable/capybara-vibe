@@ -41,13 +41,9 @@ Capybara Vibe is a powerful Multi-Agent CLI Coding tool designed to assist devel
 
 - **CLI Interface** - Feature-rich terminal interface with multiple operation modes (Standard, Safe, Plan, Auto), keybindings, and session management.
 
-- **Planning Mode** - Todo-based planning system with sequential task execution, real-time UI panel, and read-only exploration mode.
-
 - **Multi-Agent Coding** - Smart delegation of tasks to autonomous sub-agents for specialized handling.
 
 - **Multi-Provider Support** - Seamlessly switch between OpenAI, Anthropic, Google AI Studio, OpenRouter, and Litellm.
-
-- **Context Management** - "Memory Smart Compress" ensures efficient context usage for long conversations.
 
 - **Conversation Recovery** - Never lose your context; resume previous sessions with ease.
 
